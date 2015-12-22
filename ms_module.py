@@ -1,56 +1,49 @@
-import sys
-import requests
-from Bio import Seq
-from Bio import SeqIO
-from Bio import SeqRecord
-import StringIO
+import sys as __sys
+import requests as session
+# from Bio import Seq as Seq
+from Bio import SeqIO as __SeqIO
+from Bio import SeqRecord as __SeqRecord
+import StringIO as __StringIO
 
 
-####################################################################################
-# Code  #   Description
-####################################################################################
-#  200  #   The request was processed successfully.
-#  400  #   Bad request. There is a problem with your input.
-#  404  #   Not found. The resource you requested doesn’t exist.
-#  410  #   Gone. The resource you requested was removed.
-#  500  #   Internal server error. Most likely a temporary problem, but if the problem persists please contact us.
-#  503  #   Service not available. The server is being updated, try again later.
-######################################################################################
-web_request_status_collection = {200:"The request was processed successfully.",
-400:"Bad request. There is a problem with your input.",
-404:"Not found. The resource you requested doesn’t exist.",
-410:"Gone. The resource you requested was removed.",
-500:"Internal server error. Most likely a temporary problem, but if the problem persists please contact us.",
-503:"Service not available. The server is being updated, try again later."}
+__web_request_status_collection = {200: "The request was processed successfully.",
+400: "Bad request. There is a problem with your input.",
+404: "Not found. The resource you requested doesnt exist.",
+410: "Gone. The resource you requested was removed.",
+500: "Internal server error. Most likely a temporary problem, but if the problem persists please contact us.",
+503: "Service not available. The server is being updated, try again later."}
 
 
 # # typical Uniprot ID (for isoform 2) ...
 # uid = "P16870-2"
 
 
-def get_uniprot(uid):
+def get_uniprot(session,uid,seq_format='fasta'):
+    # treat missing or inknown data fairly ...
+    if uid is None:
+        return None
     # the way we form Uniprot ID request ...
     get_uid_url = lambda _: "http://www.uniprot.org/uniprot/%s.fasta"%_
     # web request for a given uid ...
     uid_url = get_uid_url(uid)
     # make a request ...
-    req_res = requests.get(uid_url)
+    req_res = session.get(uid_url)
     # check request status ...
     if req_res.status_code==200 and bool(req_res.content):
-        # to be read by SeqIO ...
-        string_as_handle = StringIO.StringIO(req_res.content)
-        seq_rec = SeqIO.read(like_a_filehandle)
+        # to be read by __SeqIO ...
+        string_as_handle = __StringIO.StringIO(req_res.content)
+        seq_rec = __SeqIO.read(string_as_handle,seq_format)
         return seq_rec
     elif req_res.status_code==200:
-        print web_request_status_collection[req_res.status_code]
+        print __web_request_status_collection[req_res.status_code]
         print "... But, the content is empty for accession number %s!"%uid
-        sys.exit(1)
-    elif req_res.status_code in web_request_status_collection:
-        print web_request_status_collection[req_res.status_code]
-        sys.exit(1)
+        __sys.exit(1)
+    elif req_res.status_code in __web_request_status_collection:
+        print __web_request_status_collection[req_res.status_code]
+        __sys.exit(1)
     else:
         print "Unknown status code returned!"
-        sys.exit(1)
+        __sys.exit(1)
 
 
 
@@ -61,9 +54,12 @@ def stupid_aligner(peptide,protein):
         assert len(seq1)==len(seq2)
         mismatches = sum( (l1!=l2) for l1,l2 in zip(seq1,seq2) )
         return mismatches
+    # treat missing data fairly ...
+    if protein is None:
+        return None
     # sequences to strings, making sure they are SeqRec or Seq entyties ...
-    peptide_str = str(peptide.seq) if type(peptide)==SeqRecord.SeqRecord else str(peptide)
-    protein_str = str(protein.seq) if type(protein)==SeqRecord.SeqRecord else str(protein)
+    peptide_str = str(peptide.seq) if type(peptide)==__SeqRecord.SeqRecord else str(peptide)
+    protein_str = str(protein.seq) if type(protein)==__SeqRecord.SeqRecord else str(protein)
     # lengths ...
     pept_len = len(peptide_str)
     prot_len = len(protein_str)
@@ -85,10 +81,21 @@ def stupid_aligner(peptide,protein):
     return align_frame
 
 
+####################################################################################
+## Code  ##   Description
+####################################################################################
+##  200  ##   The request was processed successfully.
+##  400  ##   Bad request. There is a problem with your input.
+##  404  ##   Not found. The resource you requested doesnt exist.
+##  410  ##   Gone. The resource you requested was removed.
+##  500  ##   Internal server error. Most likely a temporary problem, but if the problem persists please contact us.
+##  503  ##   Service not available. The server is being updated, try again later.
+######################################################################################
 
 
 
-
+if __name__ == "__main__":
+    pass
 
 
 
