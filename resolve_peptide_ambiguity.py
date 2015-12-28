@@ -106,7 +106,9 @@ pep_df = pd.DataFrame(dict_df)
 pep_df.to_csv("uniq_peptides_catalog.csv",index=False)
 
 
-
+print "Beware! Some columns have string values with the comma-characters ',' in them, turned out pandas "
+print "deals with the problem graciously, placing such value in quotes, that makes reading such csv files "
+print "an easy task. At least both pandas read_csv and Apple Numbers(like Excel) interpret the situation correctly!"
 
 
 

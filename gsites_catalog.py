@@ -75,12 +75,12 @@ pep_df['gsites'] = glyco_mod
 print
 print " We need to unroll glyco-sites and expand the DataFrame ..."
 # we need to unroll those rows whith more than 1 items of gsites ...
-pep_df_cols = ['all_uids', 'pept', 'peptide_start', 'prot_seqrec', 'protlen', 'uid_max', 'gsites','aa_before','aa_after']
+pep_df_cols = ['all_uids', 'pept', 'peptide_start', 'prot_seqrec', 'protlen', 'uid_max', 'gsites','aa_before','aa_after',"prot_name", "uniq_pept_count", "pept_probab"]
 pep_df_gsite_extracted = []
-for _,all_uids,pept,pept_start,prot_sr,protlen,uid_max,gsites,aa_bef,aa_aft in pep_df[pep_df_cols].itertuples():
+for _,all_uids,pept,pept_start,prot_sr,protlen,uid_max,gsites,aa_bef,aa_aft,prot_name,upept_count,pept_probab in pep_df[pep_df_cols].itertuples():
     # unrolling ...
     for gsite in gsites.split(','):
-        pep_df_gsite_extracted.append((all_uids,pept,pept_start,prot_sr,protlen,uid_max,gsite,aa_bef,aa_aft))
+        pep_df_gsite_extracted.append((all_uids,pept,pept_start,prot_sr,protlen,uid_max,gsite,aa_bef,aa_aft,prot_name,upept_count,pept_probab))
 ########################
 pep_df_ext = pd.DataFrame(pep_df_gsite_extracted,columns = pep_df_cols)
 print "mission accomplished ..."
@@ -103,12 +103,17 @@ for site_uniq in gsites_uniq:
     prot_seq = str(pep_site['prot_seqrec'].unique()[0])
     prot_len, = pep_site['protlen'].unique()
     uid_max, = pep_site['uid_max'].unique()
+    #
+    prot_name, = pep_site["prot_name"].unique()
+    upept_count = pep_site["uniq_pept_count"].unique()[0] # temporary solution, due to inconsistencies ...
+    pept_probab = ','.join(str(_) for _ in pep_site["pept_probab"])
+    #
     # make sure there is just a single gsite ...
     pep_site_gsite_uniq, = pep_site['gsites'].unique()
     # appending to final dataframe ...
-    final_dataframe.append((pep_site_gsite_uniq,pepts,pepts_start,all_uids,prot_seq,prot_len,uid_max))
+    final_dataframe.append((pep_site_gsite_uniq,pepts,pepts_start,all_uids,prot_seq,prot_len,uid_max, prot_name, upept_count, pept_probab))
 # turn to dataframe ...
-final_dataframe = pd.DataFrame(final_dataframe,columns=['gsites', 'pept', 'peptide_start','all_uids', 'prot_seq', 'protlen', 'uid_max'])
+final_dataframe = pd.DataFrame(final_dataframe,columns=['gsites', 'pept', 'peptide_start','all_uids', 'prot_seq', 'protlen', 'uid_max','prot_name', 'uniq_pept_count', 'pept_probab'])
 
 
 
