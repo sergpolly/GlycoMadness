@@ -1,5 +1,5 @@
 import sys as __sys
-import requests as session
+import requests as __requests
 # from Bio import Seq as Seq
 from Bio import SeqIO as __SeqIO
 from Bio import SeqRecord as __SeqRecord
@@ -19,6 +19,7 @@ __web_request_status_collection = {200: "The request was processed successfully.
 
 
 def get_uniprot(session,uid,seq_format='fasta'):
+    """ see http://www.uniprot.org/help/programmatic_access for details """
     # treat missing or inknown data fairly ...
     if uid is None:
         return None
@@ -49,6 +50,7 @@ def get_uniprot(session,uid,seq_format='fasta'):
 
 
 def stupid_aligner(peptide,protein):
+    """ Zero-based number of peptide occurance in the protein ..."""
     # small subfunction to get the hamming distance ...
     def hamming_distance(seq1,seq2):
         assert len(seq1)==len(seq2)
@@ -77,8 +79,28 @@ def stupid_aligner(peptide,protein):
         if delta_hd < min_mismatch:
             align_frame, min_mismatch = f, delta_hd
     # make a verbose report after the whole protein was scanned ...
-    print "Beware! Best alignment found has %d mismatches"%min_mismatch
+    print "Beware! Best alignment found has %d mismatches for peptide %s"%(min_mismatch,peptide_str)
     return align_frame
+
+
+
+
+
+
+# n4: Deamidated:18O(1) (+2.99)
+def parse_spectrum_modifications(modifier):
+    # print modifier
+    loc_mod = modifier.strip()
+    loc_mod = loc_mod.split(' ')
+    mod_type = loc_mod[0].strip(':')
+    # aa modified and peptide position ...
+    mod_type_aa, mod_type_pos = mod_type[0], int(mod_type[1:])
+    # value ...
+    mod_val = float(loc_mod[2].strip('()'))
+    #
+    return (mod_type_aa, mod_type_pos, mod_val)
+
+
 
 
 ####################################################################################
