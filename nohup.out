@@ -1,0 +1,24 @@
+Traceback (most recent call last):
+  File "resolve_peptide_ambiguity.py", line 98, in <module>
+    aa_after.append(str(prot_seq_fasta.seq)[peptide_stop_in_protein+1] if peptide_stop_in_protein1<prot_len_fasta-1 else 'END')
+NameError: name 'peptide_stop_in_protein1' is not defined
+Traceback (most recent call last):
+  File "gsites_catalog.py", line 81, in <module>
+    glyco_mod_str = ','.join([ gsite+("(%d)"%gstart+1) for gsite,gstart in zip(glyco_sites,glyco_start)])
+TypeError: cannot concatenate 'str' and 'int' objects
+Traceback (most recent call last):
+  File "resolve_peptide_ambiguity.py", line 98, in <module>
+    aa_after.append(str(prot_seq_fasta.seq)[peptide_stop_in_protein+1] if peptide_stop_in_protein1<prot_len_fasta-1 else 'END')
+NameError: name 'peptide_stop_in_protein1' is not defined
+Traceback (most recent call last):
+  File "gsites_catalog.py", line 81, in <module>
+    glyco_mod_str = ','.join([ gsite+("(%d)"%gstart+1) for gsite,gstart in zip(glyco_sites,glyco_start)])
+TypeError: cannot concatenate 'str' and 'int' objects
+Traceback (most recent call last):
+  File "resolve_peptide_ambiguity.py", line 98, in <module>
+    aa_after.append(str(prot_seq_fasta.seq)[peptide_stop_in_protein+1] if peptide_stop_in_protein1<prot_len_fasta-1 else 'END')
+NameError: name 'peptide_stop_in_protein1' is not defined
+Traceback (most recent call last):
+  File "gsites_catalog.py", line 81, in <module>
+    glyco_mod_str = ','.join([ gsite+("(%d)"%gstart+1) for gsite,gstart in zip(glyco_sites,glyco_start)])
+TypeError: cannot concatenate 'str' and 'int' objects

@@ -95,7 +95,7 @@ for pept in uniq_pept:
         # peptide can start right at N-terminus, so there will be no AminoAcid preceding it, call it a START
         aa_before.append(str(prot_seq_fasta.seq)[peptide_start_in_protein-1] if peptide_start_in_protein>0 else 'START')
         # peptide can end right at C-terminus, so there will be no AminoAcid after it, call it an END
-        aa_after.append(str(prot_seq_fasta.seq)[peptide_stop_in_protein+1] if peptide_stop_in_protein1<prot_len_fasta-1 else 'END')
+        aa_after.append(str(prot_seq_fasta.seq)[peptide_stop_in_protein+1] if peptide_stop_in_protein<prot_len_fasta-1 else 'END')
 #########################################
 dict_df = {
     "pept":interesting_peptide,

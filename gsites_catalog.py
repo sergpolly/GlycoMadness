@@ -78,7 +78,7 @@ for uniq_pept, pept_pos, prot_sr in pep_df[['pept','peptide_start','prot_seqrec'
             glyco_sites.append(prot_seq[gsite_start:gsite_stop+1])
     ############################################################
     # gstart must be 1-based for output, so it's important to correct it right here ...
-    glyco_mod_str = ','.join([ gsite+("(%d)"%gstart+1) for gsite,gstart in zip(glyco_sites,glyco_start)])
+    glyco_mod_str = ','.join([ gsite+("(%d)"%(gstart+1)) for gsite,gstart in zip(glyco_sites,glyco_start)])
     glyco_mod.append(glyco_mod_str)
 ############################
 #
@@ -151,7 +151,7 @@ def get_theor_sites(prot_seq):
     # find all sites ...
     all_sites = [(site.start(),site.groups()[0]) for site in g_site.finditer(prot_seq)]
     # N_sites = len(all_sites)
-    return ','.join( (gsite_seq+'(%d)'%pos+1) for pos,gsite_seq in all_sites) # pos+1 - indexing transition ...
+    return ','.join( (gsite_seq+'(%d)'%(pos+1)) for pos,gsite_seq in all_sites) # pos+1 - indexing transition ...
 
 
 
