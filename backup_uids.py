@@ -14,9 +14,15 @@ import StringIO
 #
 # requests session to buffer requests to uniprot.org
 session = requests.Session()
-#
-input_fname = "../peptides.xls"
-output_fname = "backup_uids_output.fasta"
+# #
+# input_fname = "../peptides.xls"
+# output_fname = "backup_uids_output.fasta"
+if len(sys.argv)<3:
+    print "Command line arguments required! Launch example:"
+    print "%s ../input_peptides.xls backup_uids_output.fasta"%sys.argv[0]
+    sys.exit(1)
+input_fname = sys.argv[1]
+output_fname = sys.argv[2]
 # interesting column names ...
 # cols = ['Protein accession numbers','Assigned','Other Proteins']
 pep_info = pd.read_csv(input_fname,sep='\t')

@@ -13,6 +13,15 @@ spec_fname = "../specs.xls"
 fasta_fname = "dec23_1701.fasta"
 uniq_pept_fname = "uniq_peptides_catalog.csv"
 #
+if len(sys.argv)<6:
+    print "Command line arguments are required! Launch example:"
+    print "%s  ../peptides.xls  ../specs.xls  dec23_1701.fasta  uniq_peptides_catalog.csv  gsites_antology.csv"%sys.argv[0]
+pep_fname =         sys.argv[1]
+spec_fname =        sys.argv[2]
+fasta_fname =       sys.argv[3]
+uniq_pept_fname =   sys.argv[4]
+out_fname =         sys.argv[5]
+#
 pep_info = pd.read_csv(pep_fname,sep='\t')
 #
 spec_info = pd.read_csv(spec_fname,sep='\t')
@@ -166,7 +175,7 @@ final_dataframe['gsites_AA3_TS'] = final_dataframe['gsites'].apply( lambda x: x[
 # final_dataframe['gsites']NFT(1098)
 
 
-final_dataframe.to_csv("gsites_antology.csv",index=False)
+final_dataframe.to_csv(out_fname,index=False)
 
 
 # 1    NIS(126)                                     (R)ALSNISLR(F)

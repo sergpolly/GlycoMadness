@@ -7,9 +7,16 @@ import numpy as np
 import ms_module as ms
 import re
 #
-#
-pep_fname = "../peptides.xls"
-fasta_fname = "dec23_1701.fasta"
+# #
+# pep_fname = "../peptides.xls"
+# fasta_fname = "dec23_1701.fasta"
+if len(sys.argv)<4:
+    print "Command line arguments required! Launch example:"
+    print "%s ../input_peptides.xls required_prot_dec23_1701.fasta uniq_peptides_catalog.sv"%sys.argv[0]
+    sys.exit(1)
+pep_fname = sys.argv[1]
+fasta_fname = sys.argv[2]
+out_fname = sys.argv[3]
 #
 pep_info = pd.read_csv(pep_fname,sep='\t')
 #
@@ -103,7 +110,7 @@ dict_df = {
 ##########################################
 pep_df = pd.DataFrame(dict_df)
 ##########################################
-pep_df.to_csv("uniq_peptides_catalog.csv",index=False)
+pep_df.to_csv(out_fname,index=False)
 
 
 print "Beware! Some columns have string values with the comma-characters ',' in them, turned out pandas "
