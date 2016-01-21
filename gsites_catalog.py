@@ -7,12 +7,12 @@ import numpy as np
 import ms_module as ms
 import re
 #
-#
-pep_fname = "../peptides.xls"
-spec_fname = "../specs.xls"
-fasta_fname = "dec23_1701.fasta"
-uniq_pept_fname = "uniq_peptides_catalog.csv"
-#
+# #
+# pep_fname = "../peptides.xls"
+# spec_fname = "../specs.xls"
+# fasta_fname = "dec23_1701.fasta"
+# uniq_pept_fname = "uniq_peptides_catalog.csv"
+# #
 if len(sys.argv)<6:
     print "Command line arguments are required! Launch example:"
     print "%s  ../peptides.xls  ../specs.xls  dec23_1701.fasta  uniq_peptides_catalog.csv  gsites_antology.csv"%sys.argv[0]
@@ -27,15 +27,18 @@ pep_info = pd.read_csv(pep_fname,sep='\t')
 spec_info = pd.read_csv(spec_fname,sep='\t')
 #
 fasta = SeqIO.to_dict(SeqIO.parse(fasta_fname,"fasta"),key_function=lambda _: _.id.split('|')[1])
-#
+# ZERO-BASED NOTATION FOR PROTEINS INDEXING ENFORCED ...
 pep_df = pd.read_csv(uniq_pept_fname)
+print "1-based indexing if expected in the input peptide file, %s. Affected columns expected: %s"%(uniq_pept_fname,"peptide_start")
+print "BEWARE: Enforcing 0-based notation back!"
+pep_df["peptide_start"] = pep_df["peptide_start"] - 1
 
 
 # connection between peptide info and spectrum info to be established ...
 ################################
 spec_info['pept'] = spec_info['Peptide sequence'].str.upper()
 
-# now let's check is all of the peptides from pep_df are in spec_info ...
+# now let's check if all of the peptides from pep_df are in spec_info ...
 spec_pept_present_index = pep_df['pept'].isin(spec_info['pept'])
 print "FYI"
 print " There are %d peptides are present in spectrum file out of %d in the peptide info file ..."%(sum(spec_pept_present_index),pep_df.shape[0])
@@ -51,7 +54,7 @@ print "Nevertheless, we move on with whatever we can do here ..."
 deamid = re.compile('[D,d]eamidat')
 # enumerating all tractable peptides from pep_df ...
 glyco_mod = []
-for _,uniq_pept,pept_pos,prot_sr in pep_df[['pept','peptide_start','prot_seqrec']].itertuples():
+for uniq_pept, pept_pos, prot_sr in pep_df[['pept','peptide_start','prot_seqrec']].itertuples(index=False):
     prot_seq = str(prot_sr)
     pept_spectrum = spec_info[ spec_info['pept']==uniq_pept ]
     # let's check all present modifications ...
@@ -64,15 +67,18 @@ for _,uniq_pept,pept_pos,prot_sr in pep_df[['pept','peptide_start','prot_seqrec'
     # now extrating meaningfull glycosilation sites ...
     glyco_sites = []
     glyco_start = []
-    for type_aa,pos,value in modifs:
+    # looks like the inner loop here is the only place where we do need 0-based indexing switching ...
+    for type_aa,gpos_pept,value in modifs:
         if (type_aa in ['n','N']) and (np.abs(value-3)<0.1):
-            # zero-based index of the g-size ...
-            gsite_start = pept_pos + pos - 1
-            gsite_stop  = pept_pos + pos - 1 + 3
+            # 'gpos_pept' - is 1-based relative position of gsite_start_N in the peptide ...
+            gsite_start = pept_pos + gpos_pept - 1 # zero-based coordinate ...
+            gsite_stop  = pept_pos + gpos_pept - 1 + 3 - 1 # zero-based coordinate ...
             glyco_start.append(gsite_start)
-            glyco_sites.append(prot_seq[gsite_start:gsite_stop])
+            # Due to slicing rules, we need [start:stop+1], no have position 'stop' included ...
+            glyco_sites.append(prot_seq[gsite_start:gsite_stop+1])
     ############################################################
-    glyco_mod_str = ','.join([ gsite+("(%d)"%gstart) for gsite,gstart in zip(glyco_sites,glyco_start)])
+    # gstart must be 1-based for output, so it's important to correct it right here ...
+    glyco_mod_str = ','.join([ gsite+("(%d)"%gstart+1) for gsite,gstart in zip(glyco_sites,glyco_start)])
     glyco_mod.append(glyco_mod_str)
 ############################
 #
@@ -86,14 +92,14 @@ print " We need to unroll glyco-sites and expand the DataFrame ..."
 # we need to unroll those rows whith more than 1 items of gsites ...
 pep_df_cols = ['all_uids', 'pept', 'peptide_start', 'prot_seqrec', 'protlen', 'uid_max', 'gsites','aa_before','aa_after',"prot_name", "uniq_pept_count", "pept_probab"]
 pep_df_gsite_extracted = []
-for _,all_uids,pept,pept_start,prot_sr,protlen,uid_max,gsites,aa_bef,aa_aft,prot_name,upept_count,pept_probab in pep_df[pep_df_cols].itertuples():
+for all_uids,pept,pept_start,prot_sr,protlen,uid_max,gsites,aa_bef,aa_aft,prot_name,upept_count,pept_probab in pep_df[pep_df_cols].itertuples(index=False):
     # unrolling ...
     for gsite in gsites.split(','):
         pep_df_gsite_extracted.append((all_uids,pept,pept_start,prot_sr,protlen,uid_max,gsite,aa_bef,aa_aft,prot_name,upept_count,pept_probab))
 ########################
 pep_df_ext = pd.DataFrame(pep_df_gsite_extracted,columns = pep_df_cols)
 print "mission accomplished ..."
-
+# so far we didn't use gsite index for adressing, so it was 1-based safely ...
 
 print
 print "Now we'd need to collapse those identical glyco sites that orginiate from overlaing peptides ..."
@@ -103,12 +109,14 @@ print " There are %d unique (glyco-site, protein id) pairs that includes empty s
 # now collapsing on those uniq sites ...
 final_dataframe = []
 for site_uniq in gsites_uniq:
+    # indexes of a given unque gsite ...
     sites_index = (gsite_uid_combined == site_uniq)
     pep_site = pep_df_ext[sites_index]
     #
     pepts = ','.join( '('+pep_site['aa_before']+')'+pep_site['pept']+'('+pep_site['aa_after']+')' )
     all_uids, = pep_site['all_uids'].unique()
-    pepts_start = ','.join(str(_) for _ in pep_site['peptide_start'])
+    # peptide_start must be corrected back to 1-based, we won't use it as index anymore ...
+    pepts_start = ','.join(str(pos_value+1) for pos_value in pep_site['peptide_start'])
     prot_seq = str(pep_site['prot_seqrec'].unique()[0])
     prot_len, = pep_site['protlen'].unique()
     uid_max, = pep_site['uid_max'].unique()
@@ -129,7 +137,6 @@ final_dataframe = pd.DataFrame(final_dataframe,columns=['gsites', 'pept', 'pepti
 #
 print 
 print "Now we'd need to add theoretical glycosilation sites as a separate column ..."
-
 g_site = re.compile(r'(?=(N[ACDEFGHIKLMNQRSTVWY][TS]))')
 
 
@@ -140,10 +147,11 @@ def get_theor_sites_number(prot_seq):
     return N_sites
 
 def get_theor_sites(prot_seq):
+    # BEWARE ZERO-BASED INDEXING TO 1-BASED INDEXING TRANSLATION ...
     # find all sites ...
     all_sites = [(site.start(),site.groups()[0]) for site in g_site.finditer(prot_seq)]
     # N_sites = len(all_sites)
-    return ','.join( (x+'(%d)'%_) for _,x in all_sites)
+    return ','.join( (gsite_seq+'(%d)'%pos+1) for pos,gsite_seq in all_sites) # pos+1 - indexing transition ...
 
 
 
@@ -164,10 +172,10 @@ def get_theor_sites(prot_seq):
 #     if res is not None:
 #         cterm_cys_pos[i] = pos+res.end()-1
 # # find QXT/S sites, according to the new Reid's idea, they must be depleated from Glycoproteome ...
-
+print " 'gsites_predicted' column uses 1-based numbering. Enforced and checked."
 final_dataframe['gsites_predicted'] = final_dataframe['prot_seq'].apply(get_theor_sites)
 final_dataframe['gsites_predicted_number'] = final_dataframe['prot_seq'].apply(get_theor_sites_number)
-
+# gsite_start must be 1-based ...
 final_dataframe['gsite_start'] = final_dataframe['gsites'].apply( lambda x: int(x[3:].strip('()')) if x else None )
 final_dataframe['gsites_AA1_N'] = final_dataframe['gsites'].apply( lambda x: x[0] if x else None )
 final_dataframe['gsites_AA2_XbutP'] = final_dataframe['gsites'].apply( lambda x: x[1] if x else None )

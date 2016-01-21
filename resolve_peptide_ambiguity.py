@@ -91,8 +91,11 @@ for pept in uniq_pept:
         pept_probab_val, = pep_dat_pept['Best Peptide identification probability'].unique()
         pept_probab.append(pept_probab_val)
         #################################
-        aa_before.append(str(prot_seq_fasta.seq)[peptide_start_in_protein-1])
-        aa_after.append(str(prot_seq_fasta.seq)[peptide_stop_in_protein+1] if peptide_stop_in_protein+1<prot_len_fasta else 'END')
+        # BEWARE: ZERO-BASED INDEXING ALL THE WAY ACROSS SO FAR...
+        # peptide can start right at N-terminus, so there will be no AminoAcid preceding it, call it a START
+        aa_before.append(str(prot_seq_fasta.seq)[peptide_start_in_protein-1] if peptide_start_in_protein>0 else 'START')
+        # peptide can end right at C-terminus, so there will be no AminoAcid after it, call it an END
+        aa_after.append(str(prot_seq_fasta.seq)[peptide_stop_in_protein+1] if peptide_stop_in_protein1<prot_len_fasta-1 else 'END')
 #########################################
 dict_df = {
     "pept":interesting_peptide,
@@ -109,6 +112,10 @@ dict_df = {
 }
 ##########################################
 pep_df = pd.DataFrame(dict_df)
+# EXPERIMENTALISTS LIKES TO COUNT FROM 1. tuning peptide_srart indexing by 1.
+print "1-based indexing if enforced in the output file, %s. Columns affected: %s"%(out_fname,"peptide_start")
+pep_df["peptide_start"] = pep_df["peptide_start"] + 1
+#
 ##########################################
 pep_df.to_csv(out_fname,index=False)
 
