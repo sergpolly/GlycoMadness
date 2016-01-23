@@ -79,8 +79,8 @@ for pept in uniq_pept:
         uid_of_maxlen_list.append(_1)
         prot_len.append(prot_len_fasta)
         prot_fasta.append(str(prot_seq_fasta.seq))
-        peptide_start_in_protein = ms.stupid_aligner(pept,prot_seq_fasta)
-        peptide_stop_in_protein = peptide_start_in_protein + len(pept)
+        peptide_start_in_protein = ms.stupid_aligner(pept,prot_seq_fasta) # 1-based ...
+        peptide_stop_in_protein = peptide_start_in_protein + len(pept) # 1-based ...
         pept_positions.append(peptide_start_in_protein)
         prot_name.append(prot_seq_fasta.description.replace(',',' ')) # long protein name here ...
         # uniq peptide count taken from pep_dat_pept, for definition look up extract_uids...
@@ -91,11 +91,11 @@ for pept in uniq_pept:
         pept_probab_val, = pep_dat_pept['Best Peptide identification probability'].unique()
         pept_probab.append(pept_probab_val)
         #################################
-        # BEWARE: ZERO-BASED INDEXING ALL THE WAY ACROSS SO FAR...
+        # BEWARE: 1-BASED INDEXING ALL THE WAY ACROSS SO FAR...
         # peptide can start right at N-terminus, so there will be no AminoAcid preceding it, call it a START
-        aa_before.append(str(prot_seq_fasta.seq)[peptide_start_in_protein-1] if peptide_start_in_protein>0 else 'START')
+        aa_before.append(str(prot_seq_fasta.seq)[peptide_start_in_protein-2] if peptide_start_in_protein>1 else 'START')
         # peptide can end right at C-terminus, so there will be no AminoAcid after it, call it an END
-        aa_after.append(str(prot_seq_fasta.seq)[peptide_stop_in_protein+1] if peptide_stop_in_protein<prot_len_fasta-1 else 'END')
+        aa_after.append(str(prot_seq_fasta.seq)[peptide_stop_in_protein+0] if peptide_stop_in_protein<prot_len_fasta else 'END')
 #########################################
 dict_df = {
     "pept":interesting_peptide,
@@ -112,9 +112,6 @@ dict_df = {
 }
 ##########################################
 pep_df = pd.DataFrame(dict_df)
-# EXPERIMENTALISTS LIKES TO COUNT FROM 1. tuning peptide_srart indexing by 1.
-print "1-based indexing if enforced in the output file, %s. Columns affected: %s"%(out_fname,"peptide_start")
-pep_df["peptide_start"] = pep_df["peptide_start"] + 1
 #
 ##########################################
 pep_df.to_csv(out_fname,index=False)

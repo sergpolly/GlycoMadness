@@ -50,7 +50,7 @@ def get_uniprot(session,uid,seq_format='fasta'):
 
 
 def stupid_aligner(peptide,protein):
-    """ Zero-based number of peptide occurance in the protein ..."""
+    """ 1-based number of peptide occurance in the protein ..."""
     # small subfunction to get the hamming distance ...
     def hamming_distance(seq1,seq2):
         assert len(seq1)==len(seq2)
@@ -80,7 +80,8 @@ def stupid_aligner(peptide,protein):
             align_frame, min_mismatch = f, delta_hd
     # make a verbose report after the whole protein was scanned ...
     print "Beware! Best alignment found has %d mismatches for peptide %s"%(min_mismatch,peptide_str)
-    return align_frame
+    # Here we're enforcing the 1-based indexing ...
+    return align_frame + 1
 
 
 
