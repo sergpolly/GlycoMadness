@@ -9,9 +9,17 @@ echo "Backing up required protein sequences from UniProt ..."
 # get needed protein sequences from uniprot and store em locally ...
 # kinda like that:
 # python  backup_uids.py  ../input_peptides.xls  backup_uids_output.fasta
-python backup_uids.py \
+if [ ! -f "$OUTPUT"/backup_uids_output.fasta ];
+then
+	echo "No pre-fetched .fasta file detected, fetching ..."
+	python backup_uids.py \
 	"$INPUT"/peptides.xls \
 	"$OUTPUT"/backup_uids_output.fasta
+else
+	echo "Pre-fetched .fasta file detected. Skip fetching ..."
+fi
+
+
 
 
 echo "Unique peptides identification and clean up ..."

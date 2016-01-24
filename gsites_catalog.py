@@ -47,16 +47,15 @@ print "There are %d spectrum peptides present in peptide file out of %d"%(peptdf
 print "Nevertheless, we move on with whatever we can do here ..."
 #
 #
-# looking for Daemidated sites only ...
+# looking for Deamidated sites only ...
 deamid = re.compile('[D,d]eamidat')
 # enumerating all tractable peptides from pep_df ...
 glyco_mod = []
 for uniq_pept, pept_pos, prot_sr in pep_df[['pept','peptide_start','prot_seqrec']].itertuples(index=False):
     prot_seq = str(prot_sr)
     pept_spectrum = spec_info[ spec_info['pept']==uniq_pept ]
-    # let's check all present modifications ...
-    modifs = ','.join(pept_spectrum['Variable modifications identified by spectrum'])
-    modifs = [mod.strip() for mod in modifs.strip().split(',')]
+    # let's check all present modifications in the flatten-out list of lists ...
+    modifs = [ mod for cmod in pept_spectrum['Variable modifications identified by spectrum'] for mod in cmod.strip().split(',') ]
     # and get those that are unique ...
     modifs = np.unique(modifs)
     # now extract type,position and value for each of them ...
@@ -76,7 +75,7 @@ for uniq_pept, pept_pos, prot_sr in pep_df[['pept','peptide_start','prot_seqrec'
             glyco_sites.append(prot_seq[gsite_start-1:gsite_stop])
     ############################################################
     # gstart must be 1-based for output ...
-    glyco_mod_str = ','.join([ gsite+("(%d)"%gstart) for gsite,gstart in zip(glyco_sites,glyco_start)])
+    glyco_mod_str = ';'.join([ gsite+("(%d)"%gstart) for gsite,gstart in zip(glyco_sites,glyco_start)])
     glyco_mod.append(glyco_mod_str)
 ############################
 #
@@ -92,7 +91,7 @@ pep_df_cols = ['all_uids', 'pept', 'peptide_start', 'prot_seqrec', 'protlen', 'u
 pep_df_gsite_extracted = []
 for all_uids,pept,pept_start,prot_sr,protlen,uid_max,gsites,aa_bef,aa_aft,prot_name,upept_count,pept_probab in pep_df[pep_df_cols].itertuples(index=False):
     # unrolling ...
-    for gsite in gsites.split(','):
+    for gsite in gsites.split(';'):
         pep_df_gsite_extracted.append((all_uids,pept,pept_start,prot_sr,protlen,uid_max,gsite,aa_bef,aa_aft,prot_name,upept_count,pept_probab))
 ########################
 pep_df_ext = pd.DataFrame(pep_df_gsite_extracted,columns = pep_df_cols)
@@ -111,17 +110,17 @@ for site_uniq in gsites_uniq:
     sites_index = (gsite_uid_combined == site_uniq)
     pep_site = pep_df_ext[sites_index]
     #
-    pepts = ','.join( '('+pep_site['aa_before']+')'+pep_site['pept']+'('+pep_site['aa_after']+')' )
+    pepts = ';'.join( '('+pep_site['aa_before']+')'+pep_site['pept']+'('+pep_site['aa_after']+')' )
     all_uids, = pep_site['all_uids'].unique()
     # peptide_start must be 1-based, we won't use it as index anymore ...
-    pepts_start = ','.join( str(pos_value) for pos_value in pep_site['peptide_start'] )
+    pepts_start = ';'.join( str(pos_value) for pos_value in pep_site['peptide_start'] )
     prot_seq = str(pep_site['prot_seqrec'].unique()[0])
     prot_len, = pep_site['protlen'].unique()
     uid_max, = pep_site['uid_max'].unique()
     #
     prot_name, = pep_site["prot_name"].unique()
     upept_count = pep_site["uniq_pept_count"].unique()[0] # temporary solution, due to inconsistencies ...
-    pept_probab = ','.join(str(_) for _ in pep_site["pept_probab"])
+    pept_probab = ';'.join(str(_) for _ in pep_site["pept_probab"])
     #
     # make sure there is just a single gsite ...
     pep_site_gsite_uniq, = pep_site['gsites'].unique()
@@ -149,7 +148,7 @@ def get_theor_sites(prot_seq):
     # find all sites ...
     all_sites = [(site.start(),site.groups()[0]) for site in g_site.finditer(prot_seq)]
     # N_sites = len(all_sites)
-    return ','.join( (gsite_seq+'(%d)'%(pos+1)) for pos,gsite_seq in all_sites) # pos+1 - indexing transition ...
+    return ';'.join( (gsite_seq+'(%d)'%(pos+1)) for pos,gsite_seq in all_sites) # pos+1 - indexing transition ...
 
 
 ##################################################################################################################
@@ -162,6 +161,12 @@ final_dataframe['gsites_AA1_N'] = final_dataframe['gsites'].apply( lambda x: x[0
 final_dataframe['gsites_AA2_XbutP'] = final_dataframe['gsites'].apply( lambda x: x[1] if x else None )
 final_dataframe['gsites_AA3_TS'] = final_dataframe['gsites'].apply( lambda x: x[2] if x else None )
 # final_dataframe['gsites']NFT(1098)
+
+# #
+# # let's change within a cell separators to ';' instead of ',', which is used for column separation ...
+# for col,dtype in final_dataframe.dtypes.iteritems():
+#     if dtype=='object':
+#         final_dataframe[col].str.replace(';',' ').str.replace(',',';')
 
 
 final_dataframe.to_csv(out_fname,index=False)

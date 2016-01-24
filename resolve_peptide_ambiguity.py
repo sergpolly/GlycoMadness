@@ -41,8 +41,8 @@ def extract_uids(peptide_seq,pep_dat_info,columns = ["Protein accession numbers"
                     if len(uid.split('|'))>1:
                         uid_ambig_list.append(uid)
     #############################################
-    uid_uniq_list = list(set(uid_ambig_list))
-    to_return = ','.join(uid_uniq_list) if uid_uniq_list else None
+    uid_uniq_list = [ uid_uniq_item.replace(';',' ') for uid_uniq_item in set(uid_ambig_list) ]
+    to_return = ';'.join(uid_uniq_list) if uid_uniq_list else None
     return (pep_dat,to_return)
 
 
@@ -110,16 +110,20 @@ dict_df = {
     "uniq_pept_count":uniq_pept_count,
     "pept_probab":pept_probab
 }
-##########################################
+##############################################################################################################################
 pep_df = pd.DataFrame(dict_df)
-#
-##########################################
+# within-cell separators are ';' now ...
+# # let's change within a cell separators to ';' instead of ',', which is used for column separation ...
+# for col,dtype in pep_df.dtypes.iteritems():
+#     if dtype=='object':
+#         pep_df[col].str.replace(';',' ').str.replace(',',';')
+##############################################################################################################################
 pep_df.to_csv(out_fname,index=False)
 
 
-print "Beware! Some columns have string values with the comma-characters ',' in them, turned out pandas "
-print "deals with the problem graciously, placing such value in quotes, that makes reading such csv files "
-print "an easy task. At least both pandas read_csv and Apple Numbers(like Excel) interpret the situation correctly!"
+# print "Beware! Some columns have string values with the comma-characters ',' in them, turned out pandas "
+# print "deals with the problem graciously, placing such value in quotes, that makes reading such csv files "
+# print "an easy task. At least both pandas read_csv and Apple Numbers(like Excel) interpret the situation correctly!"
 
 
 
