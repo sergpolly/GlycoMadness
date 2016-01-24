@@ -1,6 +1,7 @@
-INPUT="../raw_data/New_files_to_analyze/121515 glycocapture 90-80"
-OUTPUT="../Outputs/new_output_large_121515"
-
+# INPUT="../raw_data/New_files_to_analyze/121515 glycocapture 90-80"
+# OUTPUT="../Outputs/new_output_large_121515"
+INPUT=$1
+OUTPUT=$2
 
 # goto the GlycoMadness folder ...
 # and execute from there:
