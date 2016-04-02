@@ -4,7 +4,7 @@ import requests as __requests
 from Bio import SeqIO as __SeqIO
 from Bio import SeqRecord as __SeqRecord
 import StringIO as __StringIO
-
+import re as __re
 
 __web_request_status_collection = {200: "The request was processed successfully.",
 400: "Bad request. There is a problem with your input.",
@@ -101,6 +101,70 @@ def parse_spectrum_modifications(modifier):
     mod_val = float(loc_mod[2].strip('()'))
     #
     return (mod_type_aa, mod_type_pos, mod_val)
+
+
+
+
+# protein name example:
+# sp|P04439|1A03_HUMAN HLA class I histocompatibility antigen, A-3 alpha chain OS=Homo sapiens GN=HLA-A PE=1 SV=2
+# regexp to use often:
+# first part of full protein name with Uid and Locus ...
+__left_part = __re.compile("[a-z]{2}\|[A-Z0-9\-]+\|[A-Z0-9\_]+")
+# features like OS,GN etc, simply to extract what fatures are present ...
+__feature_types = __re.compile("[A-Z]{2}=")
+def parse_prot_name(prot_name,verbose=True):
+    """Functions parses provided protein name and returns a dict with: uid,locus,prot_name,GeneName,OrgSource
+    -------------------------
+    prot name expected format:
+    'sp|P04439|1A03_HUMAN HLA class I histocompatibility antigen, A-3 alpha chain OS=Homo sapiens GN=HLA-A PE=1 SV=2'"""
+    # extract left most part:
+    lp_extracted = __left_part.findall(prot_name)
+    if len(lp_extracted)!=1:
+        if verbose:
+            print "Could not match left part of protein name: %s"%prot_name
+            print "Extraction result is: ", lp_extracted
+        else:
+            pass
+        # sys.exit(1)
+        # return None
+        return { 'prot_name':prot_name }
+    lp_extracted, = lp_extracted
+    #
+    # what features are present ...
+    f_types = [ f.strip('=') for f in  __feature_types.findall(prot_name) ]
+    # generate regexp based on the combination of features:
+    # for example: "GN=(.+)PE=(.+)SV=(.+)"
+    f_pattern = ''.join(['%s=(.+)'%f for f in f_types])
+    # find the whole pattern in the protein name:
+    f_values, = __re.findall(f_pattern,prot_name)
+    # right features part for stripping ...
+    rp_extracted = ''.join( "%s=%s"%(k,v) for k,v in zip(f_types,f_values) )
+    #
+    # strip left and right part of the full prot name, to get the human readable
+    prot_name_extracted = prot_name.replace(lp_extracted,'').replace(rp_extracted,'').strip()
+    #
+    _,uid,locus = lp_extracted.split('|')
+    f_dict = dict( zip(f_types,f_values) )
+    # returning all extracted information ...
+    if ('GN' not in f_types)or('OS' not in f_types) :
+        if verbose:
+            print "There is no GeneName or OrganismSource in the protein name: %s"%prot_name
+            print "Feature types extracted are: ",f_types
+        else:
+            pass
+        # sys.exit(1)
+        return { 'uid':uid,
+                'locus':locus,
+                'prot_name':prot_name_extracted }
+    else:
+        return { 'uid':uid,
+                'locus':locus,
+                'prot_name':prot_name_extracted,
+                'GN':f_dict['GN'].strip(),
+                'OS':f_dict['OS'].strip() }
+
+
+
 
 
 
