@@ -1,6 +1,10 @@
 # skip data files at first ...
 *.xls
 *.xlsx
+*.csv
+*.gb
+*.fasta
+*.pdf
 
 # OSX stuff
 *.DS_Store
