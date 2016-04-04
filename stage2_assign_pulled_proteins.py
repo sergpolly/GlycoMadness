@@ -381,6 +381,7 @@ cols = [
 cols_short = [
  'pept',
  'fetchid',
+ 'enzyme',
  'GN',
  'GN_fetched',
  'prev_aa',
