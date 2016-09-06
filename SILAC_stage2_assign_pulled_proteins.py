@@ -25,8 +25,9 @@ full_sorted_output_with_criteria = False
 #
 # do some arguments parsing to make the script looks civilized ...
 parser = argparse.ArgumentParser()
-parser.add_argument("-f","--pept_with_fetch",
-    help="specify file name of peptide summary with fetchids (with/without path)",required=True)
+parser.add_argument("-f","--raw_fetch", help="speicfy input data fname (with fetchid column(!), with/without path)",required=True)
+# parser.add_argument("-f","--pept_with_fetch",
+#     help="specify file name of peptide summary with fetchids (with/without path)",required=True)
 parser.add_argument("-g","--genbank",
     help="specify file name of genbank records with pulled proteins (with/without path)",required=True)
 # we don't need spectrum file for downloading proteins, it is too redundant for that purpose ...
@@ -37,13 +38,13 @@ args = parser.parse_args()
 #
 ###############################################
 if args.prefix is not None:
-    pep_fetch_fname = os.path.join( args.prefix, args.pept_with_fetch )
+    raw_fetch_fname = os.path.join( args.prefix, args.raw_fetch )
     gb_fname = os.path.join( args.prefix, args.genbank )
 else:
-    pep_fetch_fname = args.pept_with_fetch
+    raw_fetch_fname = args.raw_fetch
     gb_fname = args.genbank
 # get the common path for later use ...
-common_path = os.path.commonprefix([pep_fetch_fname,gb_fname])
+common_path = os.path.commonprefix([raw_fetch_fname,gb_fname])
 common_path = os.path.dirname(common_path)
 #
 # # don'r forget to provide you email
@@ -58,63 +59,40 @@ ms.gbrecs = gbrecs
 
 ############################
 # READING file containing GeneName(and/or locus) and FetchID association ...
-print "Reading %s with the updated spectrum that includes fetchid column ..."%pep_fetch_fname
-pep_fetch = pd.read_csv(pep_fetch_fname)
+print "Reading %s with the updated spectrum that includes fetchid column ..."%raw_fetch_fname
+raw_fetch = pd.read_csv(raw_fetch_fname)
 
 
 # here is the NEW plan!:
 # first, we try to assign a single protein to each peptide
 # we collect peptide-protein pairs that failed to match, declare them BAD and send them to manuall processing ...
-
-
-
-#
-############################################
-#  columns that needs to be delivered ...  #
-############################################
-# A gsites, 1 per line
-# B pept, 1 per line
-# B1 enzyme, G or T, derive from 'Biological sample category', like this: {'TrypsinSample1':'T','GluC_Sample2':'G'}
-# C peptide_start, 1 per line accordingly
-# D all_uids, REPLACE WITH col:H
-# E prot_seq, try to get those from NCBI, not from UniProt ...
-# F protein, ??? sequence, name or what???
-# G uid_max, UID for major form instead or something like that ...
-# H prot_name, parsed out human-readable name from 'Protein name'
-# H1 gene_name, parsed out GN=xxx from 'Protein name'
-# I uniq_peptide_count, discrad that column ...
-# J pept_probability, output number not the string - this would be the criteria 
-# K gsites_predicted, OK
-# L gsites_predicted_number, OK
-# M gsite_start, beware of 0 or 1 type of indexing ...
-# N,O,P - gsites AAs in separate columns
-# M1, NOP combined, gsite sequence basically!
-# Q signal, from GeneBank record on the protein, simply Y,N on whether there is a 'Signal' in gb.
-# R signal_location, location of the signal from Q
-# S tm_span, Y,N just for the fact of having TM span as a protein feature.
-#
-#
-#
-#
 #####################################################################################################
 
 # SIMPLIFY THING BY RENAMING SOME COLUMNS ...
 col_rename = {
- 'Peptide start index':'pept_start',
- 'Peptide stop index':'pept_stop',
- 'Previous amino acid':'prev_aa',
- 'Next amino acid':'next_aa',
- 'Peptide sequence':'pept',
-}
+ # 'Peptide start index':'pept_start',
+ # 'Peptide stop index':'pept_stop',
+ # 'Previous amino acid':'prev_aa',
+ # 'Next amino acid':'next_aa',
+ 'MS Sample':'exp_name',
+ 'Spectrum Name':'spec_name',
+ 'Peptide Sequence':'pept',
+  # Channel 1  Channel 2   Normalized Channel 1    Normalized Channel 2
+ 'Channel 1':'ch1',
+ 'Channel 2':'ch2',
+ 'Normalized Channel 1':'norm_ch1',
+ 'Normalized Channel 2':'norm_ch2'}
 # rename ...
-pep_fetch.rename(columns=col_rename,inplace=True)
+raw_fetch.rename(columns=col_rename,inplace=True)
 # simplified column names to be further used in the processing ...
 cols_simple = [
  'enzyme',
- 'prev_aa',
- 'next_aa',
- 'pept_start',
- 'pept_stop',
+ # 'prev_aa',
+ # 'next_aa',
+ # 'pept_start',
+ # 'pept_stop',
+ 'spec_name',
+ 'exp_name',
  'pept',
  'GN',
  'OS',
@@ -122,9 +100,10 @@ cols_simple = [
  'prot_name',
  'uid',
  'fetchid',
- 'Best Mascot Ion score',
- 'Best Mascot Identity score',
- 'Best Mascot Delta Ion score']
+ 'ch1',
+ 'ch2',
+ 'norm_ch1',
+ 'norm_ch2']
 cols_simple += [
 'uid_fetched',
 'GN_fetched',
@@ -133,18 +112,17 @@ cols_simple += [
 'tm_span']
 #
 # FILL IN SOME COLUMNS ...
-pep_fetch['enzyme']      = pep_fetch['Biological sample category'].apply(ms.get_enzyme)
-# pep_fetch['prot_ident_probab'] = pep_fetch['Protein identification probability'].str.strip('%').apply(float)
-# pep_fetch['pept_ident_probab'] = pep_fetch['Peptide identification probability'].str.strip('%').apply(float)
-pep_fetch['uid_fetched'] = pep_fetch['fetchid'].apply(lambda fidx: gbrecs[str(int(fidx))].id if pd.notnull(fidx) else None)
-pep_fetch['GN_fetched']  = pep_fetch['fetchid'].apply( ms.get_genename )
+raw_fetch['enzyme']      = 'T' # all SILAC are trypsin ...
+# raw_fetch['enzyme']      = raw_fetch['Biological sample category'].apply(ms.get_enzyme)
+raw_fetch['uid_fetched'] = raw_fetch['fetchid'].apply(lambda fidx: gbrecs[str(int(fidx))].id if pd.notnull(fidx) else None)
+raw_fetch['GN_fetched']  = raw_fetch['fetchid'].apply( ms.get_genename )
 #
-pep_fetch['signal']      = pep_fetch['fetchid'].apply( ms.get_signal )
-pep_fetch['signal_loc']  = pep_fetch['fetchid'].apply( ms.get_signal_loc )
-pep_fetch['tm_span']     = pep_fetch['fetchid'].apply( ms.get_tm_span )
+raw_fetch['signal']      = raw_fetch['fetchid'].apply( ms.get_signal )
+raw_fetch['signal_loc']  = raw_fetch['fetchid'].apply( ms.get_signal_loc )
+raw_fetch['tm_span']     = raw_fetch['fetchid'].apply( ms.get_tm_span )
 #
 # NOW SIMPLIFY THE DATAFRAME TO CONSIDER ONLY IMPORTNAT COLUMNS AND REMOVE DUPLICATES ...
-pep_simple = pep_fetch[cols_simple].drop_duplicates()
+raw_simple = raw_fetch[cols_simple].drop_duplicates()
 #
 #
 #
@@ -160,30 +138,30 @@ pep_simple = pep_fetch[cols_simple].drop_duplicates()
 # pept start and pept stop indeces MATCH 
 # previous AA and next AA MATCH
 #
-pep_simple['crit_GN'] = (pep_simple['GN']==pep_simple['GN_fetched'])
+raw_simple['crit_GN'] = (raw_simple['GN']==raw_simple['GN_fetched'])
 # uid splitter - or . AMD uid major taker ...
 uid_split = lambda uid: tuple(re.split('[-\.]',uid)) if pd.notnull(uid) else None
 uid_major = lambda uid: re.split('[-\.]',uid)[0] if pd.notnull(uid) else None
-pep_simple['crit_uid_full'] = (pep_simple['uid'].apply(uid_split)==pep_simple['uid_fetched'].apply(uid_split))
-pep_simple['crit_uid_maj'] = (pep_simple['uid'].apply(uid_major)==pep_simple['uid_fetched'].apply(uid_major))
+raw_simple['crit_uid_full'] = (raw_simple['uid'].apply(uid_split)==raw_simple['uid_fetched'].apply(uid_split))
+raw_simple['crit_uid_maj'] = (raw_simple['uid'].apply(uid_major)==raw_simple['uid_fetched'].apply(uid_major))
 # pept_isin = lambda fidx: gbrecs[str(int(fidx))].id if pd.notnull(fidx) else None)
 
 
-pep_simple['crit_pept_in'] = pep_simple[['pept','fetchid']].apply(ms.pept_isin,axis=1)
+raw_simple['crit_pept_in'] = raw_simple[['pept','fetchid']].apply(ms.pept_isin,axis=1)
 # extract pept_info fetched first ...
 ###############################################################
 ###############################################################
-pep_simple = pep_simple.merge( pep_simple[['pept','fetchid']].apply(ms.pept_info,axis=1),left_index=True,right_index=True )
+raw_simple = raw_simple.merge( raw_simple[['pept','fetchid']].apply(ms.pept_info,axis=1),left_index=True,right_index=True )
 #
-pep_simple['crit_start'] = pep_simple['pept_start'] == pep_simple['start_fetched']
-pep_simple['crit_stop'] = pep_simple['pept_stop'] == pep_simple['stop_fetched']
-pep_simple['crit_prev_aa'] = pep_simple['prev_aa'] == pep_simple['prev_aa_fetched']
-pep_simple['crit_next_aa'] = pep_simple['next_aa'] == pep_simple['next_aa_fetched']
-#
-#
+raw_simple['crit_start']   = False #raw_simple['pept_start'] == raw_simple['start_fetched']
+raw_simple['crit_stop']    = False #raw_simple['pept_stop'] == raw_simple['stop_fetched']
+raw_simple['crit_prev_aa'] = False #raw_simple['prev_aa'] == raw_simple['prev_aa_fetched']
+raw_simple['crit_next_aa'] = False #raw_simple['next_aa'] == raw_simple['next_aa_fetched']
 #
 #
-crit_cols = [cn for cn in pep_simple.columns if 'crit_' in cn]
+#
+#
+crit_cols = [cn for cn in raw_simple.columns if 'crit_' in cn]
 # criteria weights ...
 crit_weight = pd.Series({'crit_GN':10,
  'crit_uid_full':1,
@@ -194,7 +172,7 @@ crit_weight = pd.Series({'crit_GN':10,
  'crit_prev_aa':10,
  'crit_next_aa':10})
 # get a weighted sum of all criteria ...
-pep_simple['SCORE'] = pep_simple[crit_cols].fillna(False).mul(crit_weight).sum(axis=1)
+raw_simple['SCORE'] = raw_simple[crit_cols].fillna(False).mul(crit_weight).sum(axis=1)
 #
 # ###################################################################
 # #  EVALUATE THESE CRITERIA AND GET A COLUMN WITH SUM(AXIS=1)...   #
@@ -203,16 +181,18 @@ pep_simple['SCORE'] = pep_simple[crit_cols].fillna(False).mul(crit_weight).sum(a
 # # IF IT IS JUST 1, THEN PROCEED WITH THE ONE, ELSE PRINT ALL THE INFO FOR
 # # FURTHER INVESTIGATION ...
 cols = [
+ 'spec_name',
+ 'exp_name',
  'pept',
  'fetchid',
  'GN',
  'GN_fetched',
- 'prev_aa',
- 'next_aa',
+ # 'prev_aa',
+ # 'next_aa',
  'prev_aa_fetched',
  'next_aa_fetched',
- 'pept_start',
- 'pept_stop',
+ # 'pept_start',
+ # 'pept_stop',
  'start_fetched',
  'stop_fetched',
  'enzyme',
@@ -232,23 +212,26 @@ cols = [
  'crit_stop',
  'crit_prev_aa',
  'crit_next_aa',
- 'Best Mascot Ion score',
- 'Best Mascot Identity score',
- 'Best Mascot Delta Ion score']
+ 'ch1',
+ 'ch2',
+ 'norm_ch1',
+ 'norm_ch2']
 
 
 cols_short = [
+ 'spec_name',
+ 'exp_name',
  'pept',
  'fetchid',
  'enzyme',
  'GN',
  'GN_fetched',
- 'prev_aa',
- 'next_aa',
+ # 'prev_aa',
+ # 'next_aa',
  'prev_aa_fetched',
  'next_aa_fetched',
- 'pept_start',
- 'pept_stop',
+ # 'pept_start',
+ # 'pept_stop',
  'start_fetched',
  'stop_fetched',
  'locus',
@@ -258,52 +241,69 @@ cols_short = [
  'signal',
  'signal_loc',
  'tm_span',
- 'Best Mascot Ion score',
- 'Best Mascot Identity score',
- 'Best Mascot Delta Ion score']
+ 'ch1',
+ 'ch2',
+ 'norm_ch1',
+ 'norm_ch2']
 
 
 # output stuff ...
-pep_simple_sorted = pep_simple.sort(columns=['pept','SCORE'],inplace=False)[cols+['SCORE']]
+raw_simple_sorted = raw_simple.sort(columns=['pept','SCORE'],inplace=False)[cols+['SCORE']]
 if full_sorted_output_with_criteria:
-    pep_simple_sorted.to_csv('FULL_SORTED_pepts_and_scores.csv',index=False)
+    raw_simple_sorted.to_csv('FULL_SORTED_pepts_and_scores.csv',index=False)
 
 # group data by peptides ...
-pep_grouped = pep_simple_sorted.groupby(by='pept')
+raw_grouped = raw_simple_sorted.groupby(by='pept')
 
 # let's choose a single protein per peptide:
 # idea: of max SCORE in a peptide-group is above Threshold AND is the only one in a group, THEN
 # we assign that protein to peptide.
 # OTHERWISE, (multiple max_SCORE proteins, no proteins that qualify criteria by Threshold) 
-crit_threshold = 110
+crit_threshold = 100
+print "\nAttention!!! crit_threshold is redefined manually to 100 ...\n"
 num_qualify_prots = lambda pep_grp: (pep_grp==pep_grp.max()).sum() if pep_grp.max()>=crit_threshold else 0
 idx_qualify_prots = lambda pep_grp:  pep_grp.idxmax()  if num_qualify_prots(pep_grp)==1 else None
+idx_ambig_prots   = lambda pep_grp:  pep_grp.idxmax()  if num_qualify_prots(pep_grp)>=2 else None
+idx_bad_prots     = lambda pep_grp:  pep_grp.idxmax()  if num_qualify_prots(pep_grp)==0 else None
 
 # now we have to retrieve those peptide-protein combinations that didn't work out
 # (ambiguous or lacking qualified protein)
 print
 print "Pept-protein map relies on the uniqness of the max_SCORE value ..."
 print "Here are max_SCORE occurences in the sample:"
-print str(pep_grouped['SCORE'].apply(num_qualify_prots).value_counts())
+print str(raw_grouped['SCORE'].apply(num_qualify_prots).value_counts())
 print "Those with number of occurences != 1  will go to BAD_PEPTS file ..."
 print
 
 # indexes of qualified pept-protein pairs, including peptides with no certail match as 'None' ...
-qual_prot_idxs = pep_grouped['SCORE'].apply(idx_qualify_prots)
+qual_prot_idxs  = raw_grouped['SCORE'].apply(idx_qualify_prots)
+ambig_prot_idxs = raw_grouped['SCORE'].apply(idx_ambig_prots)
+bad_prot_idxs   = raw_grouped['SCORE'].apply(idx_bad_prots)
+
 
 # separate BAD from qualified pept-protein pairs ...
 pept_prot_idxs = qual_prot_idxs[qual_prot_idxs.notnull()].map(int)
-BAD_PEPTS = qual_prot_idxs[qual_prot_idxs.isnull()].index
+AMBIG_PEPTS = ambig_prot_idxs[ambig_prot_idxs.notnull()].index
+BAD_PEPTS = bad_prot_idxs[bad_prot_idxs.notnull()].index
+
 
 # GOOD ONE ARE OUT FIRST ...
 # qualified pept-protein pairs goes straight to output for further use ...
-pept_prot_map = pep_simple_sorted.loc[pept_prot_idxs][cols_short + ['SCORE','crit_pept_in']]
+pept_prot_map = raw_simple_sorted.loc[pept_prot_idxs][cols_short + ['SCORE','crit_pept_in']]
 pept_prot_map.to_csv(os.path.join(common_path,'pept_prot_map.csv'),index=False)
 # common_path
 
 
 # FINISH IT UP WITH BAD ONES ...
-bad_pept_prot_output = pd.concat( (pep_grouped.get_group(peptide) for peptide in BAD_PEPTS) ).reset_index(drop=True)[cols+['SCORE',]]
+###############################################################################
+# modify BAD pepts, so that if a peptide is 'explained' by multiple proteins/fetchids
+# and there both with pept in and not in, show those with in - only!!!
+###############################################################################
+filter_ambig = lambda df: df[df['SCORE']>=crit_threshold].reset_index(drop=True)
+bad_pept_prot_output = pd.concat(
+                    [raw_grouped.get_group(peptide) for peptide in BAD_PEPTS]+
+                    [filter_ambig(raw_grouped.get_group(peptide)) for peptide in AMBIG_PEPTS]
+                    ).reset_index(drop=True)[cols+['SCORE',]]
 bad_pept_prot_output.to_csv(os.path.join(common_path,'BAD_pept_prot.csv'),index=False)
 
 

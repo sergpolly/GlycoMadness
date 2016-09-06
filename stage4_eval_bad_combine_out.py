@@ -20,8 +20,12 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("-e","--exp_num",
     help="specify number of an experiment",required=True)
-parser.add_argument("-m","--pept_prot_map",
-    help="specify file name of peptide summary with unique of fetchids of matching proteins (with/without path)",required=True)
+parser.add_argument("-b","--bad_map",
+    help="specify file name of bad peptide protein map file (with/without path)",required=True)
+parser.add_argument("-o","--good_final_out",
+    help="specify file name of the FINAL output with GOOD data (with/without path)",required=True)
+# parser.add_argument("-m","--pept_prot_map",
+#     help="specify file name of peptide summary with unique of fetchids of matching proteins (with/without path)",required=True)
 parser.add_argument("-g","--genbank",
     help="specify file name of genbank records with pulled proteins (with/without path)",required=True)
 parser.add_argument("-s","--spec_summary", help="speicfy spectrum file name (with/without path)",required=True)
@@ -31,15 +35,23 @@ args = parser.parse_args()
 #
 ###############################################
 if args.prefix is not None:
-    pep_map_fname = os.path.join( args.prefix, args.pept_prot_map )
+    bad_map_fname = os.path.join( args.prefix, args.bad_map )
+    good_fname    = os.path.join( args.prefix, args.good_final_out )
+    # pep_map_fname = os.path.join( args.prefix, args.pept_prot_map )
     spec_fname    = os.path.join( args.prefix, args.spec_summary )
     gb_fname      = os.path.join( args.prefix, args.genbank )
 else:
-    pep_map_fname = args.pept_prot_map
+    bad_map_fname = args.bad_map
+    good_fname    = args.good_final_out
+    # pep_map_fname = args.pept_prot_map
     spec_fname    = args.spec_summary
     gb_fname      = args.genbank
 # get the common path for later use ...
-common_path = os.path.commonprefix([pep_map_fname,spec_fname,gb_fname])
+common_path = os.path.commonprefix([bad_map_fname,
+                                    good_fname,
+                                    # pep_map_fname,
+                                    spec_fname,
+                                    gb_fname])
 common_path = os.path.dirname(common_path)
 #
 # Reading genbank mindfully next ...
@@ -56,18 +68,25 @@ elif args.separator == "comma":
 else:
     separator = '\t'
 #################
-pep_info = pd.read_csv(pep_map_fname)
+bad_info = pd.read_csv(bad_map_fname)
+good_info = pd.read_csv(good_fname)
+# pep_info = pd.read_csv(pep_map_fname)
 spec_info = pd.read_csv(spec_fname,sep=separator)
 # fix their peptide sequence thing right away ...
 spec_info['pept'] = spec_info['Peptide sequence'].str.upper()
-pep_info['fetchid'] = pep_info['fetchid'].apply(int)
-# this is an UGLY fix that we'd have to implement here just to save everything ...
+# pep_info['fetchid'] = pep_info['fetchid'].apply(int)
+bad_info['fetchid'] = bad_info['fetchid']#.apply(int) # WHY?????
 if args.exp_num=='1':
-    pep_info['enzyme'] = 'T'
-#
+    bad_info['enzyme'] = 'T'
+# #
+# bad_info.fetchid.apply(lambda x: str(int(x)) if pd.notnull(x) else None)
+# #
 # fasta = SeqIO.to_dict(SeqIO.parse(fasta_fname,"fasta"),key_function=lambda _: _.id.split('|')[1])
 # 1-BASED NOTATION FOR PROTEINS INDEXING ENFORCED ...
 # pep_df = pd.read_csv(uniq_pept_fname)
+
+
+###############################################
 
 # connection between peptide info and spectrum info to be established ...
 ##########################################################################
@@ -82,10 +101,19 @@ spec_info_unrolled['pept_ident_probab'] = spec_info_unrolled['Peptide identifica
 spec_n_pep = spec_info_unrolled[['pept',
                     'deamid_info',
                     'prot_ident_probab',
-                    'pept_ident_probab']].merge(pep_info,how='right',on='pept',suffixes=('','_x'))
+                    'pept_ident_probab']].merge(bad_info,how='right',on='pept',suffixes=('','_x'))
 
 # Now, extract those gsites ...
-dg_func = lambda x: pd.Series( ms.deamid_to_gsite(x['deamid_info'], x['start_fetched'], str(gbrecs[str(int(x['fetchid']))].seq)) )
+# dg_func = lambda x: pd.Series( ms.deamid_to_gsite(x['deamid_info'], x['start_fetched'], str(gbrecs[str(int(x['fetchid']))].seq)) )
+def dg_func(row):
+    deamid_info = row['deamid_info']
+    start_fetched = row['start_fetched']
+    fetchid = row['fetchid']
+    if pd.notnull(start_fetched) and pd.notnull(fetchid):
+        seq = gbrecs[str(int(fetchid))].seq
+        return pd.Series( ms.deamid_to_gsite(deamid_info, start_fetched, str(seq)) )
+    else:
+        return pd.Series({ 'gsite':"", 'gsite_seq':"", 'gstart':"" })
 # and add them back to the main table ...
 gs_res = spec_n_pep[['deamid_info','start_fetched','fetchid']].apply( dg_func, axis=1 )
 spec_n_pep = spec_n_pep.merge(gs_res,left_index=True,right_index=True)
@@ -99,16 +127,16 @@ print "Now we'd need to add theoretical glycosilation sites as a separate column
 print "full protein sequence and its length is added as well ..."
 # this analysis must be done, once for each 'fetchid', and then merged back to the main table ...
 
-get_theor_sites_fid = lambda fid: ms.get_theor_sites(str(gbrecs[str(fid)].seq))
-get_theor_sites_number_fid = lambda fid: ms.get_theor_sites_number(str(gbrecs[str(fid)].seq))
+get_theor_sites_fid = lambda fid: ms.get_theor_sites(str(gbrecs[str(int(fid))].seq)) if pd.notnull(fid) else None
+get_theor_sites_number_fid = lambda fid: ms.get_theor_sites_number(str(gbrecs[str(int(fid))].seq)) if pd.notnull(fid) else None
 theor_sites_info = lambda fid: pd.Series(
                                     {'fetchid':fid,
                                      'gsites_predicted':get_theor_sites_fid(fid),
                                      'gsites_predicted_number':get_theor_sites_number_fid(fid),
-                                     'prot_seq':str(gbrecs[str(fid)].seq),
-                                     'prot_len':len(str(gbrecs[str(fid)].seq))} )
+                                     'prot_seq':str(gbrecs[str(int(fid))].seq),
+                                     'prot_len':len(str(gbrecs[str(int(fid))].seq))} ) if pd.notnull(fid) else None
 ###################################################
-predicted_gsite_info = spec_n_pep['fetchid'].drop_duplicates().apply(theor_sites_info)
+predicted_gsite_info = spec_n_pep['fetchid'].dropna().drop_duplicates().apply(theor_sites_info)
 # add back to the main table ...
 spec_n_pep = spec_n_pep.merge(predicted_gsite_info,on='fetchid',how='right')
 
@@ -202,10 +230,10 @@ THE_MOST_FINAL_DF = spec_n_pep[requested_cols].drop_duplicates().reset_index(dro
 THE_MOST_FINAL_DF_max_prob = THE_MOST_FINAL_DF.loc[THE_MOST_FINAL_DF.groupby(['gsite_seq','gstart','pept','fetchid','enzyme'],sort=False)['pept_ident_probab'].idxmax() ].reset_index(drop=True)
 
 
-
 ##################################################
 #   TO BE CONTINUED ....
 #################################################
+
 
 # BEST PEPTIDE CHOSING IS WORKING, FINISH ALL PEPTIDES AND OTHER STUFF ...
 def choose_best_pept(df,dp_margin=1.0):
@@ -237,12 +265,6 @@ def unstack_pept(series):
 # fff=THE_MOST_FINAL_DF_max_prob.groupby(['gsite_seq','gstart','locus','enzyme'],sort=False).size()
 # fff[fff>1]
 
-
-THE_MOST_FINAL_DF_max_prob.groupby(['gsite_seq', 'gstart', 'locus', 'enzyme'],sort=False)['pept'].apply(unstack_pept).reset_index(drop=True)
-
-
-
-
 # choosing BEST PEPTIDE containing given gsite 
 # according to the Reid's rule of best peptide ...
 THE_MOST_FINAL_DF_uniq_pept = \
@@ -260,6 +282,14 @@ THE_MOST_FINAL_DF_uniq_pept['peptides'] = \
                                               'gstart',
                                               'locus',
                                               'enzyme'],sort=False)['pept'].apply(unstack_pept).reset_index(drop=True)
+
+###############################
+# RIGHT BEFORE FINAL REANMINGS, ASSIGNMENTS AND OTHER STUFF, ADD MISSING DATA ENTRIES HERE ...
+###############################
+# THE_MOST_FINAL_DF_uniq_pept = THE_MOST_FINAL_DF_uniq_pept.append(THE_MOST_FINAL_DF[THE_MOST_FINAL_DF['SCORE']<100])
+THE_MOST_FINAL_DF_uniq_pept = THE_MOST_FINAL_DF_uniq_pept.append(bad_info[bad_info['fetchid'].isnull()])
+###############################
+###############################
 
 
 # rename pept to best_pept AND enzyme to protease ...
@@ -313,9 +343,13 @@ requested_cols = ['locus',
 
 
 
-THE_MOST_FINAL_DF_uniq_pept[requested_cols].to_csv(os.path.join(common_path,'FINAL_gsite_anthology.csv'),index=False)
-
-
+with open(os.path.join(common_path,'FINAL_combined_output.csv'),'w') as fp:
+    # output formatted BAD stuff first ...
+    THE_MOST_FINAL_DF_uniq_pept[requested_cols].to_csv(fp,index=False)
+    #
+    fp.write("\n\nBAD and ambigous entries are over. Entries that worked out to follow:\n\n")
+    #
+    good_info.to_csv(fp,index=False)
 
 # THE_MOST_FINAL_DF_uniq.to_csv(os.path.join(common_path,'FINAL_gsite_anthology.csv'),index=False)
 
