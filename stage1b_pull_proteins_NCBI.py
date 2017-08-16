@@ -93,6 +93,7 @@ print "BEWARE! There are %d empty fetchids ..."%with_empty_fetchids.shape[0]
 print with_empty_fetchids[['Protein name','Peptide sequence']]
 print
 #
+# Epost will support GIs only for some time ... https://ncbiinsights.ncbi.nlm.nih.gov/2016/07/15/ncbi-is-phasing-out-sequence-gis-heres-what-you-need-to-know/
 search_results = Entrez.read( Entrez.epost("protein", id=",".join( non_empty_fetchids.apply(str).unique() )) )
 webenv = search_results["WebEnv"]
 query_key = search_results["QueryKey"]

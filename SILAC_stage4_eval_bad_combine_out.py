@@ -53,7 +53,7 @@ common_path = os.path.commonprefix([bad_map_fname,
 common_path = os.path.dirname(common_path)
 #
 # Reading genbank mindfully next ...
-gbrecs = ms.genebank_fix_n_read(gb_fname)
+gbrecs = ms.genebank_fix_n_read(gb_fname,key_func_type='id')
 ######################################
 # assign some module internal stuff ...
 ms.gbrecs = gbrecs
@@ -111,9 +111,9 @@ quant_n_raw = quant_info_unrolled[['pept',
                     'pept_ident_probab']].merge(bad_info,how='right',on=['pept','spec_name'],suffixes=('','_x'))
 #######################################################
 # Now, extract those gsites ...
-dg_func = lambda x: pd.Series( ms.deamid_to_gsite(x['deamid_info'], x['start_fetched'], str(gbrecs[str(int(x['fetchid']))].seq)) )
+dg_func = lambda x: pd.Series( ms.deamid_to_gsite(x['deamid_info'], x['start_fetched'], str(gbrecs[x['fetchacc']].seq)) )
 # and add them back to the main table ...
-gs_res = quant_n_raw[['deamid_info','start_fetched','fetchid']].apply( dg_func, axis=1 )
+gs_res = quant_n_raw[['deamid_info','start_fetched','fetchacc']].apply( dg_func, axis=1 )
 quant_n_raw = quant_n_raw.merge(gs_res,left_index=True,right_index=True)
 
 
@@ -125,18 +125,18 @@ print "Now we'd need to add theoretical glycosilation sites as a separate column
 print "full protein sequence and its length is added as well ..."
 # this analysis must be done, once for each 'fetchid', and then merged back to the main table ...
 
-get_theor_sites_fid = lambda fid: ms.get_theor_sites(str(gbrecs[str(fid)].seq))
-get_theor_sites_number_fid = lambda fid: ms.get_theor_sites_number(str(gbrecs[str(fid)].seq))
-theor_sites_info = lambda fid: pd.Series(
-                                    {'fetchid':fid,
-                                     'gsites_predicted':get_theor_sites_fid(fid),
-                                     'gsites_predicted_number':get_theor_sites_number_fid(fid),
-                                     'prot_seq':str(gbrecs[str(fid)].seq),
-                                     'prot_len':len(str(gbrecs[str(fid)].seq))} )
+get_theor_sites_fid = lambda facc: ms.get_theor_sites(str(gbrecs[str(facc)].seq))
+get_theor_sites_number_fid = lambda facc: ms.get_theor_sites_number(str(gbrecs[str(facc)].seq))
+theor_sites_info = lambda facc: pd.Series(
+                                    {'fetchacc':facc,
+                                     'gsites_predicted':get_theor_sites_fid(facc),
+                                     'gsites_predicted_number':get_theor_sites_number_fid(facc),
+                                     'prot_seq':str(gbrecs[str(facc)].seq),
+                                     'prot_len':len(str(gbrecs[str(facc)].seq))} )
 ###################################################
-predicted_gsite_info = quant_n_raw['fetchid'].drop_duplicates().apply(theor_sites_info)
+predicted_gsite_info = quant_n_raw['fetchacc'].drop_duplicates().apply(theor_sites_info)
 # add back to the main table ...
-quant_n_raw = quant_n_raw.merge(predicted_gsite_info,on='fetchid',how='right')
+quant_n_raw = quant_n_raw.merge(predicted_gsite_info,on='fetchacc',how='right')
 
 print "done ..."
 print "numbering appears to be 1-based and overall correct!"
@@ -168,6 +168,7 @@ requested_cols = ['locus',
 'pept',
 'pept_with_mod',
 'fetchid',
+'fetchacc',
 # 'best_pept', # THIS IS NEW STUFF ...
 'pept_ident_probab', # BEWARE, pept ID % of the BEST PEPTIDE ...
 'enzyme',
@@ -216,7 +217,7 @@ THE_MOST_FINAL_DF = quant_n_raw[requested_cols].drop_duplicates().reset_index(dr
 # choose peptide with highest Pept_ident_probab 
 # Let's collpase (gsite,pept,fetchid) using the highest pept_ident_probab ...
 # THE_MOST_FINAL_DF_max_prob = THE_MOST_FINAL_DF.loc[THE_MOST_FINAL_DF.groupby(['gsite_seq','gstart','pept','fetchid','enzyme'],sort=False)['pept_ident_probab'].idxmax() ].reset_index(drop=True)
-THE_MOST_FINAL_DF_max_prob = THE_MOST_FINAL_DF.loc[THE_MOST_FINAL_DF.groupby(['gsite_seq','gstart','pept','fetchid','enzyme','ch1','ch2'],sort=False)['pept_ident_probab'].idxmax() ].reset_index(drop=True)
+THE_MOST_FINAL_DF_max_prob = THE_MOST_FINAL_DF.loc[THE_MOST_FINAL_DF.groupby(['gsite_seq','gstart','pept','fetchid','fetchacc','enzyme','ch1','ch2'],sort=False)['pept_ident_probab'].idxmax() ].reset_index(drop=True)
 
 # rename pept to best_pept AND enzyme to protease ...
 THE_MOST_FINAL_DF_max_prob = THE_MOST_FINAL_DF_max_prob.rename(columns={'enzyme':'protease',})
@@ -241,6 +242,7 @@ requested_cols = ['locus',
 'gsite_seq',
 'gstart',
 'pept',
+'fetchacc',
 'pept_ident_probab', # BEWARE, pept ID % of the BEST PEPTIDE ...
 'Mascot Ion Score',
 'Mascot Identity Score',

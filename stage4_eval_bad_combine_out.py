@@ -55,7 +55,7 @@ common_path = os.path.commonprefix([bad_map_fname,
 common_path = os.path.dirname(common_path)
 #
 # Reading genbank mindfully next ...
-gbrecs = ms.genebank_fix_n_read(gb_fname)
+gbrecs = ms.genebank_fix_n_read(gb_fname,key_func_type='id')
 ######################################
 # assign some module internal stuff ...
 ms.gbrecs = gbrecs
@@ -75,7 +75,7 @@ spec_info = pd.read_csv(spec_fname,sep=separator)
 # fix their peptide sequence thing right away ...
 spec_info['pept'] = spec_info['Peptide sequence'].str.upper()
 # pep_info['fetchid'] = pep_info['fetchid'].apply(int)
-bad_info['fetchid'] = bad_info['fetchid']#.apply(int) # WHY?????
+# bad_info['fetchid'] = bad_info['fetchid']#.apply(int) # WHY?????
 if args.exp_num=='1':
     bad_info['enzyme'] = 'T'
 # #
@@ -92,8 +92,15 @@ if args.exp_num=='1':
 ##########################################################################
 # unroll that spec table to have 1 deamid per row ...
 spec_info_unrolled = ms.unroll_by_mfunc(spec_info,'Variable modifications identified by spectrum',ms.extract_deamids,'deamid_info')
-spec_info_unrolled['prot_ident_probab'] = spec_info_unrolled['Protein identification probability'].str.strip('%').apply(float)
-spec_info_unrolled['pept_ident_probab'] = spec_info_unrolled['Peptide identification probability'].str.strip('%').apply(float)
+if spec_info_unrolled['Protein identification probability'].dtype != 'float':
+    spec_info_unrolled['prot_ident_probab'] = spec_info_unrolled['Protein identification probability'].str.strip('%').apply(float)
+else:
+    spec_info_unrolled['prot_ident_probab'] = spec_info_unrolled['Protein identification probability']
+####################################################################################################################
+if spec_info_unrolled['Peptide identification probability'].dtype != 'float':
+    spec_info_unrolled['pept_ident_probab'] = spec_info_unrolled['Peptide identification probability'].str.strip('%').apply(float)
+else:
+    spec_info_unrolled['pept_ident_probab'] = spec_info_unrolled['Peptide identification probability']
 ##########################################################
 
 # so far the following merge seems to be 100% sufficient for the desired final output ...
@@ -108,14 +115,14 @@ spec_n_pep = spec_info_unrolled[['pept',
 def dg_func(row):
     deamid_info = row['deamid_info']
     start_fetched = row['start_fetched']
-    fetchid = row['fetchid']
-    if pd.notnull(start_fetched) and pd.notnull(fetchid):
-        seq = gbrecs[str(int(fetchid))].seq
+    fetchacc = row['fetchacc']
+    if pd.notnull(start_fetched) and pd.notnull(fetchacc):
+        seq = gbrecs[fetchacc].seq
         return pd.Series( ms.deamid_to_gsite(deamid_info, start_fetched, str(seq)) )
     else:
         return pd.Series({ 'gsite':"", 'gsite_seq':"", 'gstart':"" })
 # and add them back to the main table ...
-gs_res = spec_n_pep[['deamid_info','start_fetched','fetchid']].apply( dg_func, axis=1 )
+gs_res = spec_n_pep[['deamid_info','start_fetched','fetchacc']].apply( dg_func, axis=1 )
 spec_n_pep = spec_n_pep.merge(gs_res,left_index=True,right_index=True)
 
 
@@ -127,18 +134,18 @@ print "Now we'd need to add theoretical glycosilation sites as a separate column
 print "full protein sequence and its length is added as well ..."
 # this analysis must be done, once for each 'fetchid', and then merged back to the main table ...
 
-get_theor_sites_fid = lambda fid: ms.get_theor_sites(str(gbrecs[str(int(fid))].seq)) if pd.notnull(fid) else None
-get_theor_sites_number_fid = lambda fid: ms.get_theor_sites_number(str(gbrecs[str(int(fid))].seq)) if pd.notnull(fid) else None
-theor_sites_info = lambda fid: pd.Series(
-                                    {'fetchid':fid,
-                                     'gsites_predicted':get_theor_sites_fid(fid),
-                                     'gsites_predicted_number':get_theor_sites_number_fid(fid),
-                                     'prot_seq':str(gbrecs[str(int(fid))].seq),
-                                     'prot_len':len(str(gbrecs[str(int(fid))].seq))} ) if pd.notnull(fid) else None
+get_theor_sites_fid = lambda facc: ms.get_theor_sites(str(gbrecs[facc].seq)) if pd.notnull(facc) else None
+get_theor_sites_number_fid = lambda facc: ms.get_theor_sites_number(str(gbrecs[facc].seq)) if pd.notnull(facc) else None
+theor_sites_info = lambda facc: pd.Series(
+                                    {'fetchacc':facc,
+                                     'gsites_predicted':get_theor_sites_fid(facc),
+                                     'gsites_predicted_number':get_theor_sites_number_fid(facc),
+                                     'prot_seq':str(gbrecs[facc].seq),
+                                     'prot_len':len(str(gbrecs[facc].seq))} ) if pd.notnull(facc) else None
 ###################################################
-predicted_gsite_info = spec_n_pep['fetchid'].dropna().drop_duplicates().apply(theor_sites_info)
+predicted_gsite_info = spec_n_pep['fetchacc'].dropna().drop_duplicates().apply(theor_sites_info)
 # add back to the main table ...
-spec_n_pep = spec_n_pep.merge(predicted_gsite_info,on='fetchid',how='right')
+spec_n_pep = spec_n_pep.merge(predicted_gsite_info,on='fetchacc',how='right')
 
 print "done ..."
 print "numbering appears to be 1-based and overall correct!"
@@ -163,6 +170,7 @@ requested_cols = ['gsite',
 'start_fetched',
 'prot_name',
 'fetchid',
+'fetchacc',
 'uid_fetched',
 'GN_fetched',
 'pept_ident_probab',
@@ -185,6 +193,7 @@ requested_cols = ['locus',
 # 'peptides',  # THIS IS NEW STUFF ...
 'pept',
 'fetchid',
+'fetchacc',
 # 'best_pept', # THIS IS NEW STUFF ...
 'pept_ident_probab', # BEWARE, pept ID % of the BEST PEPTIDE ...
 'enzyme',
@@ -204,9 +213,9 @@ requested_cols = ['locus',
 'gsite_AA1',
 'gsite_AA2',
 'gsite_AA3',
-'Best Mascot Ion score',
-'Best Mascot Identity score',
-'Best Mascot Delta Ion score',
+'Best Mascot Ion Score',
+'Best Mascot Identity Score',
+'Best Mascot Delta Ion Score',
 'prot_seq', # PROTEIN SEQUENCE TO BE ADDED ...
 'signal',
 'signal_loc',
@@ -227,7 +236,7 @@ THE_MOST_FINAL_DF = spec_n_pep[requested_cols].drop_duplicates().reset_index(dro
 
 # choose peptide with highest Pept_ident_probab 
 # Let's collpase (gsite,pept,fetchid) using the highest pept_ident_probab ...
-THE_MOST_FINAL_DF_max_prob = THE_MOST_FINAL_DF.loc[THE_MOST_FINAL_DF.groupby(['gsite_seq','gstart','pept','fetchid','enzyme'],sort=False)['pept_ident_probab'].idxmax() ].reset_index(drop=True)
+THE_MOST_FINAL_DF_max_prob = THE_MOST_FINAL_DF.loc[THE_MOST_FINAL_DF.groupby(['gsite_seq','gstart','pept','fetchid','fetchacc','enzyme'],sort=False)['pept_ident_probab'].idxmax() ].reset_index(drop=True)
 
 
 ##################################################
@@ -309,6 +318,7 @@ requested_cols = ['locus',
 'peptides',  # THIS IS NEW STUFF ...
 # 'pept',
 # 'fetchid',
+'fetchacc',
 'best_pept', # THIS IS NEW STUFF ...
 'pept_ident_probab', # BEWARE, pept ID % of the BEST PEPTIDE ...
 'protease',
@@ -329,9 +339,9 @@ requested_cols = ['locus',
 'gsite_AA1',
 'gsite_AA2',
 'gsite_AA3',
-'Best Mascot Ion score',
-'Best Mascot Identity score',
-'Best Mascot Delta Ion score',
+'Best Mascot Ion Score',
+'Best Mascot Identity Score',
+'Best Mascot Delta Ion Score',
 'prot_seq', # PROTEIN SEQUENCE TO BE ADDED ...
 'signal',
 'signal_loc',

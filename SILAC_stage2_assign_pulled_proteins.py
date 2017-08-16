@@ -51,7 +51,7 @@ common_path = os.path.dirname(common_path)
 # Entrez.email = args.email if args.email else "your_email@mail_server.com"
 crit_threshold = args.threshold
 # Reading genbank mindfully next ...
-gbrecs = ms.genebank_fix_n_read(gb_fname)
+gbrecs = ms.genebank_fix_n_read(gb_fname,key_func_type='id')
 ######################################
 # assign some module internal stuff ...
 ms.gbrecs = gbrecs
@@ -100,6 +100,7 @@ cols_simple = [
  'prot_name',
  'uid',
  'fetchid',
+ 'fetchacc',
  'ch1',
  'ch2',
  'norm_ch1',
@@ -114,12 +115,12 @@ cols_simple += [
 # FILL IN SOME COLUMNS ...
 raw_fetch['enzyme']      = 'T' # all SILAC are trypsin ...
 # raw_fetch['enzyme']      = raw_fetch['Biological sample category'].apply(ms.get_enzyme)
-raw_fetch['uid_fetched'] = raw_fetch['fetchid'].apply(lambda fidx: gbrecs[str(int(fidx))].id if pd.notnull(fidx) else None)
-raw_fetch['GN_fetched']  = raw_fetch['fetchid'].apply( ms.get_genename )
+raw_fetch['uid_fetched'] = raw_fetch['fetchacc'].apply(lambda fidx: gbrecs[fidx].id if pd.notnull(fidx) else None)
+raw_fetch['GN_fetched']  = raw_fetch['fetchacc'].apply( ms.get_genename )
 #
-raw_fetch['signal']      = raw_fetch['fetchid'].apply( ms.get_signal )
-raw_fetch['signal_loc']  = raw_fetch['fetchid'].apply( ms.get_signal_loc )
-raw_fetch['tm_span']     = raw_fetch['fetchid'].apply( ms.get_tm_span )
+raw_fetch['signal']      = raw_fetch['fetchacc'].apply( ms.get_signal )
+raw_fetch['signal_loc']  = raw_fetch['fetchacc'].apply( ms.get_signal_loc )
+raw_fetch['tm_span']     = raw_fetch['fetchacc'].apply( ms.get_tm_span )
 #
 # NOW SIMPLIFY THE DATAFRAME TO CONSIDER ONLY IMPORTNAT COLUMNS AND REMOVE DUPLICATES ...
 raw_simple = raw_fetch[cols_simple].drop_duplicates()
@@ -147,11 +148,11 @@ raw_simple['crit_uid_maj'] = (raw_simple['uid'].apply(uid_major)==raw_simple['ui
 # pept_isin = lambda fidx: gbrecs[str(int(fidx))].id if pd.notnull(fidx) else None)
 
 
-raw_simple['crit_pept_in'] = raw_simple[['pept','fetchid']].apply(ms.pept_isin,axis=1)
+raw_simple['crit_pept_in'] = raw_simple[['pept','fetchacc']].apply(ms.pept_isin,axis=1)
 # extract pept_info fetched first ...
 ###############################################################
 ###############################################################
-raw_simple = raw_simple.merge( raw_simple[['pept','fetchid']].apply(ms.pept_info,axis=1),left_index=True,right_index=True )
+raw_simple = raw_simple.merge( raw_simple[['pept','fetchacc']].apply(ms.pept_info,axis=1),left_index=True,right_index=True )
 #
 raw_simple['crit_start']   = False #raw_simple['pept_start'] == raw_simple['start_fetched']
 raw_simple['crit_stop']    = False #raw_simple['pept_stop'] == raw_simple['stop_fetched']
@@ -185,6 +186,7 @@ cols = [
  'exp_name',
  'pept',
  'fetchid',
+ 'fetchacc',
  'GN',
  'GN_fetched',
  # 'prev_aa',
@@ -223,6 +225,7 @@ cols_short = [
  'exp_name',
  'pept',
  'fetchid',
+ 'fetchacc',
  'enzyme',
  'GN',
  'GN_fetched',
@@ -248,7 +251,7 @@ cols_short = [
 
 
 # output stuff ...
-raw_simple_sorted = raw_simple.sort(columns=['pept','SCORE'],inplace=False)[cols+['SCORE']]
+raw_simple_sorted = raw_simple.sort_values(by=['pept','SCORE'],inplace=False)[cols+['SCORE']]
 if full_sorted_output_with_criteria:
     raw_simple_sorted.to_csv('FULL_SORTED_pepts_and_scores.csv',index=False)
 

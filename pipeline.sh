@@ -1,7 +1,8 @@
-INPUT="../raw_data/New_files_to_analyze/glycocapture17_by_Reid"
-EXPNUM=17
-PEPS="Glycocap17_peptide report.csv"
-SPECS="Glycocapture 17_spectra report.csv"
+# INPUT="../raw_data/New_files_to_analyze/glycocapture21_by_Reid"
+INPUT="../raw_data/NGI_files_to_analyze/glycocapture6NGI_by_Reid"
+EXPNUM=5
+PEPS="GlycocapNGI1-6_peptide report.csv"
+SPECS="GlycocapNGI1-6_spectra report.csv"
 
 # goto the GlycoMadness folder ...
 # and execute from there:
@@ -11,13 +12,16 @@ echo "stage 0"
 # it produces readable outputs: unique peptides in both files, their intersections along with
 # unique proteins in both files and their intersection ...
 # Proteins and peptides are compared independently, using "Protein name" and "Peptide sequence" columns ...
-python stage0_spec_n_summary_check.py \
+python2.7 stage0_spec_n_summary_check.py \
     --prefix "$INPUT" \
     --verbose \
     --separator comma \
     -p "$PEPS" \
     -s "$SPECS"
 # NOT_IN kinda files are also produced by this script ...
+
+# check exit status and exit if it's not 0
+rc=$?; if (( $rc != 0 )); then exit $rc; fi
 
 
 
@@ -26,17 +30,20 @@ echo "stage 1a and 1b ..."
 # it identifies fetchid-s first, and then it downloads corresponding records in genbank format ...
 # not all proteins might end up with the fetchids, moreso,
 # there might be discrepancies between spectrum and pept_sum in terms of # of proteins these files are reffering to.
-python stage1a_aquire_fetchid_NCBI.py \
+python2.7 stage1a_aquire_fetchid_NCBI.py \
     --prefix "$INPUT" \
     --separator comma \
     -p "$PEPS" \
     --email sergey.venev@umassmed.edu \
     --swiss 
 # pull em ...
-python stage1b_pull_proteins_NCBI.py \
+python2.7 stage1b_pull_proteins_NCBI.py \
     --prefix "$INPUT" \
     -f peptides_with_fetch.csv \
     --email sergey.venev@umassmed.edu 
+
+# check exit status and exit if it's not 0
+rc=$?; if (( $rc != 0 )); then exit $rc; fi
 
 
 
@@ -44,11 +51,13 @@ echo "stage 2"
 # Stage2 is simply assigning pulled protein sequences to the peptides listed in summary...
 # We're trying to choose best peptide-protein combinations according to some rules and criteria.
 # Ambiguous and/or underachieving are reported in the BAD file ...
-python stage2_assign_pulled_proteins.py \
+python2.7 stage2_assign_pulled_proteins.py \
     --prefix "$INPUT" \
     -f peptides_with_fetch.csv \
     -g pulled_proteins.gb
 
+# check exit status and exit if it's not 0
+rc=$?; if (( $rc != 0 )); then exit $rc; fi
 
 
 
@@ -57,7 +66,7 @@ echo "stage 3"
 # we're extracting glycosilation information and MERGING already processed peptide summary with spectrum report.
 # Spec and pep are merged using peptides, so if there were any mismatches between 2 files on the "Protein" level,
 # than Peptide summary associated nomenclature would end up in the FINAL file ...
-python stage3_gsites_catalog.py \
+python2.7 stage3_gsites_catalog.py \
     -e "$EXPNUM" \
     --prefix "$INPUT" \
     --separator comma \
@@ -65,11 +74,16 @@ python stage3_gsites_catalog.py \
     -g pulled_proteins.gb \
     -s "$SPECS"
 
+# check exit status and exit if it's not 0
+rc=$?; if (( $rc != 0 )); then exit $rc; fi
+
+
+
 
 
 echo "stage 4"
 # combine BAD and GOOD in one excel spreadsheet ...
-python stage4_eval_bad_combine_out.py \
+python2.7 stage4_eval_bad_combine_out.py \
     --prefix "$INPUT" \
     -e "$EXPNUM" \
     -b BAD_pept_prot.csv \
@@ -77,6 +91,9 @@ python stage4_eval_bad_combine_out.py \
     -g pulled_proteins.gb \
     -s "$SPECS" \
     --separator comma
+
+# check exit status and exit if it's not 0
+rc=$?; if (( $rc != 0 )); then exit $rc; fi
 
 
 

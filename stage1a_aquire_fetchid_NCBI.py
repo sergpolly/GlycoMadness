@@ -239,6 +239,31 @@ unrolled_fetch_res = multicol_fetch_res.stack()
 # IMPORTANT: indexes correspond to those from the original df (use it for merging later) ...
 unrolled_origfetch = unrolled_fetch_res.reset_index(level=1,drop=True).str.split(':',expand=True)
 unrolled_origfetch = unrolled_origfetch.rename(columns={0:'source',1:'fetchid'})
+###################################################################################
+# ACTHUNG!!!!!!! AN UGLY FIX IS IMPLEMENTED ...
+####################################################################################
+# try to substitute existing GIs with accesion.version stuff here ...
+#
+def get_acc(uid):
+    handle = Entrez.efetch(db="protein", id=uid, rettype="acc",retmode="text")
+    print "Matching %s with accession ..."%uid
+    acc_list = handle.readlines()
+    if len(acc_list) != 1:
+        print "GI must yield a signle accession for %s, but it does not"%uid
+        print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        print acc_list
+        return np.nan
+    acc, = acc_list
+    acc = acc.strip()
+    print "Perfect match found: %s - %s"%(uid,acc)
+    return acc
+#
+unrolled_origfetch['fetchacc'] = unrolled_origfetch['fetchid'].apply(get_acc)
+###################################################################################
+# ACTHUNG!!!!!!! AN UGLY FIX IS IMPLEMENTED ...
+####################################################################################
+#
+#
 # merge unrolled_origindex (a single column with ambiguous index) with the original df ...
 # 'unrolled_origindex' must be DataFrame to merge: Series are not mergeable for some reason ...
 # the whole df is to be unrolled after the following operation.

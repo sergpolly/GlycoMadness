@@ -50,7 +50,8 @@ common_path = os.path.dirname(common_path)
 # Entrez.email = args.email if args.email else "your_email@mail_server.com"
 crit_threshold = args.threshold
 # Reading genbank mindfully next ...
-gbrecs = ms.genebank_fix_n_read(gb_fname)
+# gbrecs = ms.genebank_fix_n_read(gb_fname)
+gbrecs = ms.genebank_fix_n_read(gb_fname,key_func_type='id')
 ######################################
 # assign some module internal stuff ...
 ms.gbrecs = gbrecs
@@ -122,9 +123,10 @@ cols_simple = [
  'prot_name',
  'uid',
  'fetchid',
- 'Best Mascot Ion score',
- 'Best Mascot Identity score',
- 'Best Mascot Delta Ion score']
+ 'fetchacc',
+ 'Best Mascot Ion Score',
+ 'Best Mascot Identity Score',
+ 'Best Mascot Delta Ion Score']
 cols_simple += [
 'uid_fetched',
 'GN_fetched',
@@ -136,12 +138,13 @@ cols_simple += [
 pep_fetch['enzyme']      = pep_fetch['Biological sample category'].apply(ms.get_enzyme)
 # pep_fetch['prot_ident_probab'] = pep_fetch['Protein identification probability'].str.strip('%').apply(float)
 # pep_fetch['pept_ident_probab'] = pep_fetch['Peptide identification probability'].str.strip('%').apply(float)
-pep_fetch['uid_fetched'] = pep_fetch['fetchid'].apply(lambda fidx: gbrecs[str(int(fidx))].id if pd.notnull(fidx) else None)
-pep_fetch['GN_fetched']  = pep_fetch['fetchid'].apply( ms.get_genename )
+pep_fetch['uid_fetched'] = pep_fetch['fetchacc'].apply(lambda fidx: gbrecs[fidx].id if pd.notnull(fidx) else None)
+# pep_fetch['uid_fetched'] = pep_fetch['fetchid'].apply(lambda fidx: gbrecs[str(int(fidx))].id if pd.notnull(fidx) else None)
+pep_fetch['GN_fetched']  = pep_fetch['fetchacc'].apply( ms.get_genename )
 #
-pep_fetch['signal']      = pep_fetch['fetchid'].apply( ms.get_signal )
-pep_fetch['signal_loc']  = pep_fetch['fetchid'].apply( ms.get_signal_loc )
-pep_fetch['tm_span']     = pep_fetch['fetchid'].apply( ms.get_tm_span )
+pep_fetch['signal']      = pep_fetch['fetchacc'].apply( ms.get_signal )
+pep_fetch['signal_loc']  = pep_fetch['fetchacc'].apply( ms.get_signal_loc )
+pep_fetch['tm_span']     = pep_fetch['fetchacc'].apply( ms.get_tm_span )
 #
 # NOW SIMPLIFY THE DATAFRAME TO CONSIDER ONLY IMPORTNAT COLUMNS AND REMOVE DUPLICATES ...
 pep_simple = pep_fetch[cols_simple].drop_duplicates()
@@ -169,11 +172,11 @@ pep_simple['crit_uid_maj'] = (pep_simple['uid'].apply(uid_major)==pep_simple['ui
 # pept_isin = lambda fidx: gbrecs[str(int(fidx))].id if pd.notnull(fidx) else None)
 
 
-pep_simple['crit_pept_in'] = pep_simple[['pept','fetchid']].apply(ms.pept_isin,axis=1)
+pep_simple['crit_pept_in'] = pep_simple[['pept','fetchacc']].apply(ms.pept_isin,axis=1)
 # extract pept_info fetched first ...
 ###############################################################
 ###############################################################
-pep_simple = pep_simple.merge( pep_simple[['pept','fetchid']].apply(ms.pept_info,axis=1),left_index=True,right_index=True )
+pep_simple = pep_simple.merge( pep_simple[['pept','fetchacc']].apply(ms.pept_info,axis=1),left_index=True,right_index=True )
 #
 pep_simple['crit_start'] = pep_simple['pept_start'] == pep_simple['start_fetched']
 pep_simple['crit_stop'] = pep_simple['pept_stop'] == pep_simple['stop_fetched']
@@ -205,6 +208,7 @@ pep_simple['SCORE'] = pep_simple[crit_cols].fillna(False).mul(crit_weight).sum(a
 cols = [
  'pept',
  'fetchid',
+ 'fetchacc',
  'GN',
  'GN_fetched',
  'prev_aa',
@@ -232,14 +236,15 @@ cols = [
  'crit_stop',
  'crit_prev_aa',
  'crit_next_aa',
- 'Best Mascot Ion score',
- 'Best Mascot Identity score',
- 'Best Mascot Delta Ion score']
+ 'Best Mascot Ion Score',
+ 'Best Mascot Identity Score',
+ 'Best Mascot Delta Ion Score']
 
 
 cols_short = [
  'pept',
  'fetchid',
+ 'fetchacc',
  'enzyme',
  'GN',
  'GN_fetched',
@@ -258,13 +263,13 @@ cols_short = [
  'signal',
  'signal_loc',
  'tm_span',
- 'Best Mascot Ion score',
- 'Best Mascot Identity score',
- 'Best Mascot Delta Ion score']
+ 'Best Mascot Ion Score',
+ 'Best Mascot Identity Score',
+ 'Best Mascot Delta Ion Score']
 
 
 # output stuff ...
-pep_simple_sorted = pep_simple.sort(columns=['pept','SCORE'],inplace=False)[cols+['SCORE']]
+pep_simple_sorted = pep_simple.sort_values(by=['pept','SCORE'],inplace=False)[cols+['SCORE']]
 if full_sorted_output_with_criteria:
     pep_simple_sorted.to_csv('FULL_SORTED_pepts_and_scores.csv',index=False)
 
