@@ -1,9 +1,7 @@
-# INPUT="../raw_data/New_files_to_analyze/SILAC10A"
-INPUT="../raw_data/NGI_files_to_analyze/SILAC6NGI"
-EXPNUM=5
-RAW="SilacNGI1-6_raw data report.csv"
-QUANT="SilacNGI1-6_quantspectrareport.csv"
-
+INPUT="../raw_data/NGI_files_to_analyze/SILAC_6_TG_D"
+EXPNUM=63
+RAW="Siliac-6TG(D)_rawdatareport.csv"
+QUANT="Silac-6TG(D)_quantspectrumreport.csv"
 # goto the GlycoMadness folder ...
 # and execute from there:
 

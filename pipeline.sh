@@ -1,11 +1,10 @@
-# INPUT="../raw_data/New_files_to_analyze/glycocapture21_by_Reid"
-INPUT="../raw_data/NGI_files_to_analyze/glycocapture6NGI_by_Reid"
-EXPNUM=5
-PEPS="GlycocapNGI1-6_peptide report.csv"
-SPECS="GlycocapNGI1-6_spectra report.csv"
-
+INPUT="../raw_data/NGI_files_to_analyze/glycocapture_6_TG_C_by_Reid"
+EXPNUM="62"
+PEPS="Glycocap-6TG(C)_peptide report.csv"
+SPECS="Glycocap-6TG(C)_spectrareport.csv"
 # goto the GlycoMadness folder ...
 # and execute from there:
+
 
 echo "stage 0"
 # stage 0 is simply checking the consistency between spectrum report and peptide summary
